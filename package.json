@@ -8,7 +8,9 @@
     "@openzeppelin/contracts": "^2.5.1",
     "@openzeppelin/contracts-ethereum-package": "^2.5.0"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "truffle": "^5.1.48"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
