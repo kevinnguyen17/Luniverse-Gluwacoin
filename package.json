@@ -1,0 +1,35 @@
+{
+  "name": "luniverse-gluwacoin",
+  "version": "1.0.0",
+  "description": "Gluwacoin for Luniverse",
+  "main": "index.js",
+  "dependencies": {
+    "@openzeppelin/cli": "^2.8.2",
+    "@openzeppelin/contracts": "^2.5.1",
+    "@openzeppelin/contracts-ethereum-package": "^2.5.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gluwa/Sidechain-Gluwacoin.git"
+  },
+  "keywords": [
+    "Gluwa",
+    "Gluwacoin",
+    "Sidechain",
+    "Luniverse",
+    "Ethereum",
+    "ERC-20",
+    "Smart",
+    "Contract"
+  ],
+  "author": "Gluwa, Inc.",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/gluwa/Sidechain-Gluwacoin/issues"
+  },
+  "homepage": "https://github.com/gluwa/Sidechain-Gluwacoin#readme"
+}
