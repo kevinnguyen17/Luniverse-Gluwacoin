@@ -20,11 +20,6 @@ Read [ERC-20 Wrapper Gluwacoin](ERC-20%20Wrapper%20Gluwacoin.md) for details.
 $ npm install
 ```
 
-#### Installing OpenZeppelin
-```commandline
-$ npm install @openzeppelin/cli
-```
-
 #### Initializing the openzeppelin project
 ```commandline
 $ npx oz init
