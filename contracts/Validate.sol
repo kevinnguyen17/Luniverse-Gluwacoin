@@ -1,4 +1,5 @@
-pragma solidity 0.5.0;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.5.0;
 
 import "@openzeppelin/contracts-ethereum-package/contracts/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/utils/Address.sol";
@@ -21,6 +22,6 @@ library Validate {
         address signer = messageHash.recover(sig);
         require(signer == sender, "Validate: invalid signature");
 
-        return;
+        return true;
     }
 }

@@ -1,12 +1,16 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.5.0;
 
 import "@openzeppelin/upgrades/contracts/Initializable.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/access/Roles.sol";
+import "@openzeppelin/contracts-ethereum-package/contracts/GSN/Context.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/utils/Address.sol";
 
-contract GatekeeperRole is Initializable {
+contract GatekeeperRole is Initializable, Context {
+    using SafeMath for uint256;
+
     using Address for address;
     using Roles for Roles.Role;
 
@@ -14,12 +18,12 @@ contract GatekeeperRole is Initializable {
     event GatekeeperRemoved(address indexed account);
 
     Roles.Role private _gatekeepers;
-    uint8 _gatekeepersCount;
+    uint256 _gatekeepersCount;
 
     // address of a gatekeeper candidate mapping to address gatekeeper who approved the candidate
     mapping (address => mapping (address => bool)) private _candidateApproval;
     // address of a gatekeeper candidate mapping to the number of approvals it received
-    mapping (address => uint8) private _candidateApprovalCount;
+    mapping (address => uint256) private _candidateApprovalCount;
 
     function initialize(address sender) public initializer {
         if (!isGatekeeper(sender)) {
@@ -68,9 +72,9 @@ contract GatekeeperRole is Initializable {
     }
 
     function _removeGatekeeper(address account) internal {
-        _minters.remove(account);
+        _gatekeepers.remove(account);
         _gatekeepersCount = _gatekeepersCount.sub(1);
-        emit MinterRemoved(account);
+        emit GatekeeperRemoved(account);
     }
 
     uint256[50] private ______gap;
