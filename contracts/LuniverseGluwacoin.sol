@@ -11,7 +11,7 @@ import "./roles/GatekeeperRole.sol";
  *
  * At construction, the deployer of the contract is the only minter.
  */
-contract ERC20Mintable is Initializable, ERC20, GatekeeperRole {
+contract LuniverseGluwacoin is Initializable, ERC20, GatekeeperRole {
     function initialize(address sender) public initializer {
         GatekeeperRole.initialize(sender);
     }
@@ -23,7 +23,7 @@ contract ERC20Mintable is Initializable, ERC20, GatekeeperRole {
      *
      * - the caller must have the {MinterRole}.
      */
-    function mint(address account, uint256 amount) public onlyMinter returns (bool) {
+    function mint(address account, uint256 amount) public onlyGatekeeper returns (bool) {
         _mint(account, amount);
         return true;
     }
