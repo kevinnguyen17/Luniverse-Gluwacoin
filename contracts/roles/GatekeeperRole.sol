@@ -18,7 +18,7 @@ contract GatekeeperRole is Initializable {
 
     // address of a gatekeeper candidate mapping to address gatekeeper who approved the candidate
     mapping (address => mapping (address => bool)) private _candidateApproval;
-    // address of a gatekeeper candidate mapping to number of approval for that transaction
+    // address of a gatekeeper candidate mapping to the number of approvals it received
     mapping (address => uint8) private _candidateApprovalCount;
 
     function initialize(address sender) public initializer {
