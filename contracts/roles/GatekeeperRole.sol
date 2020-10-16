@@ -20,12 +20,6 @@ contract GatekeeperRole is Initializable {
     mapping (address => mapping (address => bool)) private _candidateApproval;
     // address of a gatekeeper candidate mapping to number of approval for that transaction
     mapping (address => uint8) private _candidateApprovalCount;
-    // transaction hash of a token pegging mapping to address gatekeeper who approved the peg
-    mapping (bytes32 => mapping (address => bool)) private _peggingApproval;
-    // transaction hash of a token pegging mapping to number of approval for that peg
-    mapping (bytes32 => uint8) private _peggingApprovalCount;
-    // transaction hash of a token pegging mapping to if it was processed
-    mapping (bytes32 => bool) private _pegged;
 
     function initialize(address sender) public initializer {
         if (!isGatekeeper(sender)) {
@@ -56,14 +50,6 @@ contract GatekeeperRole is Initializable {
 
     function renounceGatekeeper() public {
         _removeGatekeeper(_msgSender());
-    }
-
-    function isPegged(bytes32 txnHash) public view returns (bool) {
-        return _pegged[txnHash];
-    }
-
-    function isPegApproved(bytes32 txnHash, address gatekeeper) public view returns (bool) {
-        return _peggingApproval[txnHash][gatekeeper];
     }
 
     function _approveGatekeeper(address account) internal {
