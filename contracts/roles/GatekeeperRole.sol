@@ -54,13 +54,6 @@ contract GatekeeperRole is Initializable {
         _removeGatekeeper(_msgSender());
     }
 
-    function transferGatekeeper(address account) public onlyGatekeeper {
-        require(!_gatekeepers.has(account), "GatekeeperRole: the account is already a gatekeeper");
-
-        _removeGatekeeper(_msgSender());
-        _addGatekeeper(account);
-    }
-
     function _approveCandidate(address account) internal {
         require(_candidateApproval[account][_msgSender()] == false, "GatekeeperRole: the account is already approved the sender");
 
