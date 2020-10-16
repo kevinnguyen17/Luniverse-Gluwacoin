@@ -32,27 +32,29 @@ contract GatekeeperRole is Initializable {
         _;
     }
 
-    function isGatekeeper(address account) public view returns (bool) {
-        return _gatekeepers.has(account);
-    }
-
     function isCandidateApproved(address account) public view returns (bool) {
         return _candidateApproval[account][_msgSender()];
     }
 
-    function addGatekeeper(address account) public onlyGatekeeper {
-        _approveGatekeeper(account);
+    function approveCandidate(address account) public onlyGatekeeper {
+        _approveCandidate(account);
+    }
 
-        if (_candidateApprovalCount[account] == _gatekeepersCount) {
-            _addGatekeeper(account);
-        }
+    function isGatekeeper(address account) public view returns (bool) {
+        return _gatekeepers.has(account);
+    }
+
+    function addGatekeeper(address account) public onlyGatekeeper {
+        require(_candidateApprovalCount[account] == _gatekeepersCount, "GatekeeperRole: the account does not have unanimous approval");
+
+        _addGatekeeper(account);
     }
 
     function renounceGatekeeper() public {
         _removeGatekeeper(_msgSender());
     }
 
-    function _approveGatekeeper(address account) internal {
+    function _approveCandidate(address account) internal {
         require(_candidateApproval[account][_msgSender()] == false, "GatekeeperRole: the account is already approved the sender");
 
         _candidateApproval[account][_msgSender()] = true;
