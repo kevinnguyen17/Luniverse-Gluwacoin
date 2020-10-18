@@ -39,46 +39,6 @@ contract Peggable is Initializable, BeforeTransferERC20, GluwaRole, LuniverseRol
         return false;
     }
 
-    function getPegAmount(bytes32 txnHash) public view returns (uint256 amount) {
-        require(_pegged[txnHash]._sender != address(0), "Peggable: the txnHash is not pegged");
-
-        Peg memory peg = _pegged[txnHash];
-
-        return peg._amount;
-    }
-
-    function getPegSender(bytes32 txnHash) public view returns (address sender) {
-        require(_pegged[txnHash]._sender != address(0), "Peggable: the txnHash is not pegged");
-
-        Peg memory peg = _pegged[txnHash];
-
-        return peg._sender;
-    }
-
-    function isPegGluwaApproved(bytes32 txnHash) public view returns (bool gluwaApproved) {
-        require(_pegged[txnHash]._sender != address(0), "Peggable: the txnHash is not pegged");
-
-        Peg memory peg = _pegged[txnHash];
-
-        return peg._gluwaApproved;
-    }
-
-    function isPegLuniverseApproved(bytes32 txnHash) public view returns (bool luniverseApproved) {
-        require(_pegged[txnHash]._sender != address(0), "Peggable: the txnHash is not pegged");
-
-        Peg memory peg = _pegged[txnHash];
-
-        return peg._luniverseApproved;
-    }
-
-    function isPegProccessed(bytes32 txnHash) public view returns (bool processed) {
-        require(_pegged[txnHash]._sender != address(0), "Peggable: the txnHash is not pegged");
-
-        Peg memory peg = _pegged[txnHash];
-
-        return peg._processed;
-    }
-
     function getPeg(bytes32 txnHash) public view returns (uint256 amount, address sender, bool gluwaApproved,
         bool luniverseApproved, bool processed) {
         require(_pegged[txnHash]._sender != address(0), "Peggable: the txnHash is not pegged");

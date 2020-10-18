@@ -429,12 +429,25 @@ describe('LuniverseGluwacoin', function () {
     // getPeg related
     it('Gluwa can get an existing peg', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await this.token.getPeg(pegTxnHash, { from : deployer });
+
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.amount).to.be.bignumber.equal(pegAmount);
+        expect(peg.sender).to.be.bignumber.equal(pegSender);
+        expect(!peg.gluwaApproved);
+        expect(!peg.luniverseApproved);
+        expect(!peg.processed);
     });
 
     it('other can get an existing peg', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
         await this.token.getPeg(pegTxnHash, { from : other });
+
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.amount).to.be.bignumber.equal(pegAmount);
+        expect(peg.sender).to.be.bignumber.equal(pegSender);
+        expect(!peg.gluwaApproved);
+        expect(!peg.luniverseApproved);
+        expect(!peg.processed);
     });
 
     it('cannot get a non-existing peg', async function () {
@@ -448,13 +461,17 @@ describe('LuniverseGluwacoin', function () {
     it('Gluwa can gluwaApprove', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
         await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        expect(await this.token.isPegGluwaApproved(pegTxnHash)).to.be.equal(true);
+
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.gluwaApproved);
     });
 
     it('Gluwa cannot gluwaApprove already gluwaApproved', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
         await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        expect(await this.token.isPegGluwaApproved(pegTxnHash)).to.be.equal(true);
+
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.gluwaApproved);
 
         await expectRevert(
             this.token.gluwaApprove(pegTxnHash, { from : deployer }),
@@ -474,13 +491,17 @@ describe('LuniverseGluwacoin', function () {
     it('Luniverse can luniverseApprove', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
         await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        expect(await this.token.isPegLuniverseApproved(pegTxnHash)).to.be.equal(true);
+
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.luniverseApproved);
     });
 
     it('Luniverse cannot luniverseApprove already luniverseApproved', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
         await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        expect(await this.token.isPegLuniverseApproved(pegTxnHash)).to.be.equal(true);
+
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.luniverseApproved);
 
         await expectRevert(
             this.token.luniverseApprove(pegTxnHash, { from : deployer }),
@@ -504,7 +525,9 @@ describe('LuniverseGluwacoin', function () {
 
         await this.token.mint(pegTxnHash, { from : deployer });
 
-        expect(await this.token.isPegProccessed(pegTxnHash));
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.processed);
+
         expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
         expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
     });
@@ -517,7 +540,9 @@ describe('LuniverseGluwacoin', function () {
         await this.token.addGluwa(other, { from : deployer });
         await this.token.mint(pegTxnHash, { from : other });
 
-        expect(await this.token.isPegProccessed(pegTxnHash));
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.processed);
+
         expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
         expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
     });
@@ -530,7 +555,9 @@ describe('LuniverseGluwacoin', function () {
         await this.token.addLuniverse(other, { from : deployer });
         await this.token.mint(pegTxnHash, { from : other });
 
-        expect(await this.token.isPegProccessed(pegTxnHash));
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.processed);
+
         expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
         expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
     });
