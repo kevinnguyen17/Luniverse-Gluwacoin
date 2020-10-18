@@ -36,8 +36,12 @@ contract GatekeeperRole is Initializable, Context {
         _;
     }
 
-    function isCandidateApproved(address account) public view returns (bool) {
-        return _candidateApproval[account][_msgSender()];
+    function gatekeeperCount() public view returns (uint256) {
+        return _gatekeepersCount;
+    }
+
+    function isCandidateApproved(address account, address approver) public view returns (bool) {
+        return _candidateApproval[account][approver];
     }
 
     function approveCandidate(address account) public onlyGatekeeper {
@@ -62,6 +66,7 @@ contract GatekeeperRole is Initializable, Context {
         require(_candidateApproval[account][_msgSender()] == false, "GatekeeperRole: the account is already approved the sender");
 
         _candidateApproval[account][_msgSender()] = true;
+        require(_candidateApproval[account][_msgSender()] == true, "GatekeeperRole: the account has failed to get approved the sender");
         _candidateApprovalCount[account] = _candidateApprovalCount[account].add(1);
     }
 
