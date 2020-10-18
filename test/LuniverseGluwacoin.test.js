@@ -9,6 +9,8 @@ const { ZERO_ADDRESS, MAX_UINT256 } = constants;
 // Load compiled artifacts
 const LuniverseGluwacoin = contract.fromArtifact('LuniverseGluwacoinMock');
 
+var sign = require('./signature');
+
 // Start test block
 describe('LuniverseGluwacoin', function () {
     const [ deployer, other, another, pegSender ] = accounts;
@@ -17,6 +19,9 @@ describe('LuniverseGluwacoin', function () {
     const name = 'LuniverseGluwacoin';
     const symbol = 'LG';
     const decimals = new BN('18');
+
+    const amount = new BN('5000');
+    const fee = new BN('1');
 
     const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
     const pegAmount = new BN('1000');
@@ -389,7 +394,6 @@ describe('LuniverseGluwacoin', function () {
 
         const burnAmount = new BN('10000');
 
-        await this.token.burn(burnAmount, { from : pegSender });
         await expectRevert(
             this.token.burn(burnAmount, { from : pegSender }),
             'ERC20: burn amount exceeds balance'
@@ -597,6 +601,53 @@ describe('LuniverseGluwacoin', function () {
         await expectRevert(
             this.token.mint(pegTxnHash, { from : other }),
             'Peggable: the txnHash is not Luniverse Approved'
+        );
+    });
+
+    /* ETHless related
+    */
+    it('can send transfer', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+        await this.token.mint(pegTxnHash, { from : deployer });
+
+        await this.token.methods['transfer(address,uint256)'](other, pegAmount, { from: pegSender });
+    });
+
+    it('Gluwa can send ETHless transfer', async function () {
+        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+        await this.token.mint(pegTxnHash, { from : deployer });
+
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount);
+        expect(await this.token.balanceOf(another)).to.be.bignumber.equal('0');
+
+        var nonce = Date.now();
+
+        var signature = sign.sign(this.token.address, other, other_privateKey, another, amount.sub(fee), fee, nonce);
+
+        await this.token.transfer(other, another, amount.sub(fee), fee, nonce, signature, { from: deployer });
+
+        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal(fee);
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal('0');
+        expect(await this.token.balanceOf(another)).to.be.bignumber.equal(amount.sub(fee));
+    });
+
+    it('non-Gluwa cannot send ETHless transfer', async function () {
+        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+        await this.token.mint(pegTxnHash, { from : deployer });
+
+        var nonce = Date.now();
+
+        var signature = sign.sign(this.token.address, other, other_privateKey, another, amount.sub(fee), fee, nonce);
+
+        await expectRevert(
+            this.token.transfer(other, another, amount.sub(fee), fee, nonce, signature, { from: another }),
+            'GluwaRole: caller does not have the Gluwa role'
         );
     });
 });

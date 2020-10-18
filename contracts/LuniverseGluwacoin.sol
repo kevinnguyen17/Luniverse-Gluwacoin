@@ -5,6 +5,7 @@ import "@openzeppelin/upgrades/contracts/Initializable.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/GSN/Context.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20.sol";
 import "./abstracts/Burnable.sol";
+import "./abstracts/ETHlessTransfer.sol";
 import "./abstracts/Peggable.sol";
 import "./roles/GluwaRole.sol";
 import "./roles/LuniverseRole.sol";
@@ -15,7 +16,7 @@ import "./roles/LuniverseRole.sol";
  *
  * At construction, the deployer of the contract is the only minter.
  */
-contract LuniverseGluwacoin is Initializable, ERC20, GluwaRole, LuniverseRole, Burnable, Peggable  {
+contract LuniverseGluwacoin is Initializable, ERC20, GluwaRole, LuniverseRole, Burnable, ETHlessTransfer, Peggable  {
     function initialize() public initializer {
         GluwaRole.initialize(_msgSender());
         LuniverseRole.initialize(_msgSender());
