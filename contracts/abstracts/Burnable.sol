@@ -3,13 +3,13 @@ pragma solidity ^0.5.0;
 
 import "@openzeppelin/upgrades/contracts/Initializable.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/GSN/Context.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/utils/Address.sol";
+import "./BeforeTransferERC20.sol";
 
 /**
  * @dev Extension of {ERC20} that allows users to burn its token or burnFrom its allowance.
  */
-contract Burnable is Initializable, Context, ERC20 {
+contract Burnable is Initializable, Context, BeforeTransferERC20 {
     /**
      * @dev Destroys `amount` tokens from the caller.
      *

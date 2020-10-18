@@ -3,9 +3,9 @@ pragma solidity ^0.5.0;
 
 import "@openzeppelin/upgrades/contracts/Initializable.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/GSN/Context.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/utils/Address.sol";
 
+import "./BeforeTransferERC20.sol";
 import "../roles/GluwaRole.sol";
 import "../roles/LuniverseRole.sol";
 
@@ -17,7 +17,7 @@ import "../roles/LuniverseRole.sol";
  * Also, only Gluwa or Luniverse can process approved pegs.
  * You cannot process a peg more than once.
  */
-contract Peggable is Initializable, ERC20, GluwaRole, LuniverseRole {
+contract Peggable is Initializable, BeforeTransferERC20, GluwaRole, LuniverseRole {
     using Address for address;
 
     struct Peg {
