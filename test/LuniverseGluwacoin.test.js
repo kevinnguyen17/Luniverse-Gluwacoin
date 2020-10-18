@@ -25,7 +25,7 @@ describe('LuniverseGluwacoin', function () {
 
     beforeEach(async function () {
         // Deploy a new LuniverseGluwacoin contract for each test
-        this.token = await LuniverseGluwacoin.new(deployer, { from: deployer });
+        this.token = await LuniverseGluwacoin.new();
     });
 
     it('initial totalSupply is 0', async function () {

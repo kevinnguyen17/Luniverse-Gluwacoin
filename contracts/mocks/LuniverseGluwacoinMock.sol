@@ -8,9 +8,8 @@ import "../LuniverseGluwacoin.sol";
 contract LuniverseGluwacoinMock is Initializable, LuniverseGluwacoin {
 
     constructor(
-        address sender
     ) public {
-        initialize(sender);
+        initialize();
     }
 
     uint256[50] private __gap;
