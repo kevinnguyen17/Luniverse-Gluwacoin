@@ -194,3 +194,4 @@ fabric.properties
 
 .openzeppelin/
 build/
+.openzeppelin/.session

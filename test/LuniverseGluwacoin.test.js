@@ -1,6 +1,6 @@
 // Load dependencies
-const { accounts, privateKeys, contract, web3 } = require('@openzeppelin/test-environment');
 const { expect } = require('chai');
+const { accounts, privateKeys, contract, web3 } = require('@openzeppelin/test-environment');
 
 // Import utilities from Test Helpers
 const { BN, constants, expectEvent, expectRevert, time } = require('@openzeppelin/test-helpers');
@@ -25,7 +25,7 @@ describe('LuniverseGluwacoin', function () {
 
     beforeEach(async function () {
         // Deploy a new LuniverseGluwacoin contract for each test
-        this.token = await LuniverseGluwacoin.new({ from: deployer });
+        this.token = await LuniverseGluwacoin.new(deployer, { from: deployer });
     });
 
     it('initial totalSupply is 0', async function () {
