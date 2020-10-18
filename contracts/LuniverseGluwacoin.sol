@@ -4,7 +4,8 @@ pragma solidity ^0.5.0;
 import "@openzeppelin/upgrades/contracts/Initializable.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/GSN/Context.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20.sol";
-import "./roles/GatekeeperRole.sol";
+import "./roles/GluwaRole.sol";
+import "./roles/LuniverseRole.sol";
 
 /**
  * @dev Extension of {ERC20} that adds a set of accounts with the {MinterRole},
@@ -12,9 +13,10 @@ import "./roles/GatekeeperRole.sol";
  *
  * At construction, the deployer of the contract is the only minter.
  */
-contract LuniverseGluwacoin is Initializable, ERC20, GatekeeperRole {
+contract LuniverseGluwacoin is Initializable, ERC20, GluwaRole, LuniverseRole  {
     function initialize() public initializer {
-        GatekeeperRole.initialize(_msgSender());
+        GluwaRole.initialize(_msgSender());
+        LuniverseRole.initialize(_msgSender());
     }
 
     uint256[50] private ______gap;
