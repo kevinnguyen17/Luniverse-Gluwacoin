@@ -396,7 +396,7 @@ describe('LuniverseGluwacoin', function () {
 
         await expectRevert(
             this.token.burn(burnAmount, { from : pegSender }),
-            'ERC20: burn amount exceeds balance'
+            'Reservable: transfer amount exceeds unreserved balance'
         );
     });
 
