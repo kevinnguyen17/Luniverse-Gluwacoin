@@ -17,7 +17,7 @@ import "../roles/LuniverseRole.sol";
  * Also, only Gluwa or Luniverse can process approved pegs.
  * You cannot process a peg more than once.
  */
-abstract contract Peggable is Initializable, ERC20, GluwaRole, LuniverseRole {
+contract Peggable is Initializable, ERC20, GluwaRole, LuniverseRole {
     using Address for address;
 
     struct Peg {
@@ -33,8 +33,58 @@ abstract contract Peggable is Initializable, ERC20, GluwaRole, LuniverseRole {
 
     function initialize() public initializer {}
 
-    function getPeg(string txnHash) public view returns (uint256 amount, address sender, bool gluwaApproved,
+    function isPegged(string memory txnHash) public view returns (bool pegged) {
+        if (_pegged[txnHash]._sender != address(0)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    function getPegAmount(string memory txnHash) public view returns (uint256 amount) {
+        require(_pegged[txnHash]._sender != address(0), "Peggable: the txnHash is not pegged");
+
+        Peg memory peg = _pegged[txnHash];
+
+        return peg._amount;
+    }
+
+    function getPegSender(string memory txnHash) public view returns (address sender) {
+        require(_pegged[txnHash]._sender != address(0), "Peggable: the txnHash is not pegged");
+
+        Peg memory peg = _pegged[txnHash];
+
+        return peg._sender;
+    }
+
+    function isPegGluwaApproved(string memory txnHash) public view returns (bool gluwaApproved) {
+        require(_pegged[txnHash]._sender != address(0), "Peggable: the txnHash is not pegged");
+
+        Peg memory peg = _pegged[txnHash];
+
+        return peg._gluwaApproved;
+    }
+
+    function isPegLuniverseApproved(string memory txnHash) public view returns (bool luniverseApproved) {
+        require(_pegged[txnHash]._sender != address(0), "Peggable: the txnHash is not pegged");
+
+        Peg memory peg = _pegged[txnHash];
+
+        return peg._luniverseApproved;
+    }
+
+    function isPegProccessed(string memory txnHash) public view returns (bool processed) {
+        require(_pegged[txnHash]._sender != address(0), "Peggable: the txnHash is not pegged");
+
+        Peg memory peg = _pegged[txnHash];
+
+        return peg._processed;
+    }
+
+    function getPeg(string memory txnHash) public view returns (uint256 amount, address sender, bool gluwaApproved,
         bool luniverseApproved, bool processed) {
+        require(_pegged[txnHash]._sender != address(0), "Peggable: the txnHash is not pegged");
+
         Peg memory peg = _pegged[txnHash];
 
         amount = peg._amount;
@@ -44,23 +94,21 @@ abstract contract Peggable is Initializable, ERC20, GluwaRole, LuniverseRole {
         processed = peg._processed;
     }
 
-    function peg(string txnHash, uint256 amount, address sender) public {
-        require(!_pegged[txnHash], "Peggable: the txnHash is already pegged");
+    function peg(string memory txnHash, uint256 amount, address sender) public {
+        require(_pegged[txnHash]._sender == address(0), "Peggable: the txnHash is already pegged");
         require(isGluwa(_msgSender()) || isLuniverse(_msgSender()),
             "Peggable: caller does not have the Gluwa role or the Luniverse role");
 
         _pegged[txnHash] = Peg(amount, sender, false, false, false);
     }
 
-    function gluwaApprove(string txnHash) public {
-        require(isGluwa(_msgSender()), "Peggable: caller does not have the Gluwa role");
+    function gluwaApprove(string memory txnHash) public onlyGluwa {
         require(!_pegged[txnHash]._gluwaApproved, "Peggable: the txnHash is already Gluwa Approved");
 
         _pegged[txnHash]._gluwaApproved = true;
     }
 
-    function luniverseApprove(string txnHash) public {
-        require(isLuniverse(_msgSender()), "Peggable: caller does not have the Luniverse role");
+    function luniverseApprove(string memory txnHash) public onlyLuniverse {
         require(!_pegged[txnHash]._luniverseApproved, "Peggable: the txnHash is already Luniverse Approved");
 
         _pegged[txnHash]._luniverseApproved = true;
@@ -74,21 +122,21 @@ abstract contract Peggable is Initializable, ERC20, GluwaRole, LuniverseRole {
      * - the Peg must be Gluwa Approved and Luniverse Approved.
      * - the caller must have the Gluwa role or the Luniverse role.
      */
-    function mint(string txnHash) public returns (bool) {
+    function mint(string memory txnHash) public returns (bool) {
         require(isGluwa(_msgSender()) || isLuniverse(_msgSender()),
             "Peggable: caller does not have the Gluwa role or the Luniverse role");
 
         _processPeg(txnHash);
 
         address account = _pegged[txnHash]._sender;
-        uint256 account = _pegged[txnHash]._amount;
+        uint256 amount = _pegged[txnHash]._amount;
 
         _mint(account, amount);
 
         return true;
     }
 
-    function _processPeg(string txnHash) internal {
+    function _processPeg(string memory txnHash) internal {
         require(_pegged[txnHash]._gluwaApproved, "Peggable: the txnHash is not Gluwa Approved");
         require(_pegged[txnHash]._luniverseApproved, "Peggable: the txnHash is not Luniverse Approved");
         require(!_pegged[txnHash]._processed, "Peggable: the txnHash is already processed");
