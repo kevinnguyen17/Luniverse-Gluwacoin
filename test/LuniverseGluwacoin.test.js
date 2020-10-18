@@ -345,6 +345,57 @@ describe('LuniverseGluwacoin', function () {
         );
     });
 
+    /* Burnable related
+    */
+    // burn related
+    it('can burn less than balance', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await this.token.mint(pegTxnHash, { from : deployer });
+        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
+
+        const burnAmount = new BN('100');
+
+        await this.token.burn(burnAmount, { from : pegSender });
+        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount.sub(burnAmount));
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount.sub(burnAmount));
+    });
+
+    it('can burn full balance', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await this.token.mint(pegTxnHash, { from : deployer });
+        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
+
+        await this.token.burn(pegAmount, { from : pegSender });
+        expect(await this.token.totalSupply()).to.be.bignumber.equal('0');
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal('0');
+    });
+
+    it('cannot burn more than balance', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await this.token.mint(pegTxnHash, { from : deployer });
+        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
+
+        const burnAmount = new BN('10000');
+
+        await this.token.burn(burnAmount, { from : pegSender });
+        await expectRevert(
+            this.token.burn(burnAmount, { from : pegSender }),
+            'ERC20: burn amount exceeds balance'
+        );
+    });
+
     /* Peggable related
     */
     // peg related
@@ -453,7 +504,7 @@ describe('LuniverseGluwacoin', function () {
         expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
         expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
     });
-    
+
     it('newly-added Gluwa can mint', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
         await this.token.gluwaApprove(pegTxnHash, { from : deployer });

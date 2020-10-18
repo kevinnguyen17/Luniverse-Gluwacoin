@@ -8,7 +8,6 @@ import "@openzeppelin/contracts-ethereum-package/contracts/utils/Address.sol";
 
 import "../roles/GluwaRole.sol";
 import "../roles/LuniverseRole.sol";
-import "../Validate.sol";
 
 /**
  * @dev Extension of {ERC20} that allows users to 2-way peg tokens from a sidechain of Luniverse, the Ethereum.
@@ -31,8 +30,6 @@ contract Peggable is Initializable, ERC20, GluwaRole, LuniverseRole {
 
     // string mapping to Peg.
     mapping (bytes32 => Peg) private _pegged;
-
-    function initialize() public initializer {}
 
     function isPegged(bytes32 txnHash) public view returns (bool pegged) {
         if (_pegged[txnHash]._sender != address(0)) {
