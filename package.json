@@ -1,0 +1,42 @@
+{
+  "name": "luniverse-gluwacoin",
+  "version": "1.0.0",
+  "description": "Gluwacoin for Luniverse",
+  "main": "index.js",
+  "dependencies": {
+    "@openzeppelin/cli": "^2.8.2",
+    "@openzeppelin/contracts": "^2.5.1",
+    "@openzeppelin/contracts-ethereum-package": "^2.5.0"
+  },
+  "devDependencies": {
+    "@openzeppelin/test-environment": "^0.1.5",
+    "@openzeppelin/test-helpers": "^0.5.7",
+    "chai": "^4.2.0",
+    "ganache-cli": "^6.12.0",
+    "mocha": "^8.2.0",
+    "truffle": "^5.1.48"
+  },
+  "scripts": {
+    "test": "oz compile && mocha --exit --recursive test --timeout 5000"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gluwa/Luniverse-Gluwacoin.git"
+  },
+  "keywords": [
+    "Gluwa",
+    "Gluwacoin",
+    "Sidechain",
+    "Luniverse",
+    "Ethereum",
+    "ERC-20",
+    "Smart",
+    "Contract"
+  ],
+  "author": "Gluwa, Inc.",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/gluwa/Luniverse-Gluwacoin/issues"
+  },
+  "homepage": "https://github.com/gluwa/Luniverse-Gluwacoin#readme"
+}
