@@ -186,4 +186,162 @@ describe('LuniverseGluwacoin', function () {
         );
 
     });
+
+    /* LuniverseRole related
+    */
+    it('deployer is a Luniverse', async function () {
+        expect(await this.token.isLuniverse(deployer)).to.be.equal(true);
+    });
+
+    it('non-deployer is not a Luniverse', async function () {
+        expect(await this.token.isLuniverse(other)).to.be.equal(false);
+        expect(await this.token.isLuniverse(another)).to.be.equal(false);
+    });
+
+    // addLuniverse related
+    it('Luniverse can add non-Luniverse and make it Luniverse', async function () {
+        expect(await this.token.isLuniverse(deployer)).to.be.equal(true);
+        expect(await this.token.isLuniverse(other)).to.be.equal(false);
+        await this.token.addLuniverse(other, { from : deployer });
+        expect(await this.token.isLuniverse(other)).to.be.equal(true);
+    });
+
+    it('Luniverse cannot add Luniverse again', async function () {
+        expect(await this.token.isLuniverse(deployer)).to.be.equal(true);
+        await expectRevert(
+            this.token.addLuniverse(deployer, { from : deployer }),
+            'Roles: account already has role'
+        );
+    });
+
+    it('newly added Luniverse can add non-Luniverse and make it Luniverse', async function () {
+        expect(await this.token.isLuniverse(deployer)).to.be.equal(true);
+        expect(await this.token.isLuniverse(other)).to.be.equal(false);
+        await this.token.addLuniverse(other, { from : deployer });
+
+        expect(await this.token.isLuniverse(other)).to.be.equal(true);
+        expect(await this.token.isLuniverse(another)).to.be.equal(false);
+        await this.token.addLuniverse(another, { from : other });
+
+        expect(await this.token.isLuniverse(another)).to.be.equal(true);
+    });
+
+    it('newly added Luniverse cannot add Luniverse again', async function () {
+        expect(await this.token.isLuniverse(deployer)).to.be.equal(true);
+        expect(await this.token.isLuniverse(other)).to.be.equal(false);
+        await this.token.addLuniverse(other, { from : deployer });
+
+        expect(await this.token.isLuniverse(other)).to.be.equal(true);
+        await expectRevert(
+            this.token.addLuniverse(deployer, { from : other }),
+            'Roles: account already has role'
+        );
+    });
+
+    it('newly added Luniverse cannot add newly added Luniverse again', async function () {
+        expect(await this.token.isLuniverse(deployer)).to.be.equal(true);
+        expect(await this.token.isLuniverse(other)).to.be.equal(false);
+        expect(await this.token.isLuniverse(another)).to.be.equal(false);
+        await this.token.addLuniverse(other, { from : deployer });
+        await this.token.addLuniverse(another, { from : deployer });
+
+        expect(await this.token.isLuniverse(other)).to.be.equal(true);
+        expect(await this.token.isLuniverse(another)).to.be.equal(true);
+        await expectRevert(
+            this.token.addLuniverse(another, { from : other }),
+            'Roles: account already has role'
+        );
+    });
+
+    it('non-Luniverse cannot add non-Luniverse', async function () {
+        expect(await this.token.isLuniverse(other)).to.be.equal(false);
+        expect(await this.token.isLuniverse(another)).to.be.equal(false);
+        await expectRevert(
+            this.token.addLuniverse(another, { from : other }),
+            'LuniverseRole: caller does not have the Luniverse role'
+        );
+    });
+
+    it('non-Luniverse cannot add Luniverse', async function () {
+        expect(await this.token.isLuniverse(deployer)).to.be.equal(true);
+        expect(await this.token.isLuniverse(other)).to.be.equal(false);
+        await expectRevert(
+            this.token.addLuniverse(deployer, { from : other }),
+            'LuniverseRole: caller does not have the Luniverse role'
+        );
+    });
+
+    // removeLuniverse related
+    it('Luniverse can remove Luniverse and make it non-Luniverse', async function () {
+        expect(await this.token.isLuniverse(deployer)).to.be.equal(true);
+        await this.token.removeLuniverse(deployer, { from : deployer });
+        expect(await this.token.isLuniverse(deployer)).to.be.equal(false);
+    });
+
+    it('newly added Luniverse can remove Luniverse and make it non-Luniverse', async function () {
+        expect(await this.token.isLuniverse(deployer)).to.be.equal(true);
+        expect(await this.token.isLuniverse(other)).to.be.equal(false);
+        await this.token.addLuniverse(other, { from : deployer });
+
+        expect(await this.token.isLuniverse(other)).to.be.equal(true);
+        await this.token.removeLuniverse(deployer, { from : other });
+
+        expect(await this.token.isLuniverse(deployer)).to.be.equal(false);
+    });
+
+    it('newly added Luniverse can remove newly added Luniverse and make it non-Luniverse', async function () {
+        expect(await this.token.isLuniverse(deployer)).to.be.equal(true);
+        expect(await this.token.isLuniverse(other)).to.be.equal(false);
+        expect(await this.token.isLuniverse(another)).to.be.equal(false);
+        await this.token.addLuniverse(other, { from : deployer });
+        await this.token.addLuniverse(another, { from : deployer });
+
+        expect(await this.token.isLuniverse(other)).to.be.equal(true);
+        expect(await this.token.isLuniverse(another)).to.be.equal(true);
+        await this.token.removeLuniverse(another, { from : other });
+
+        expect(await this.token.isLuniverse(another)).to.be.equal(false);
+    });
+
+    it('non-Luniverse cannot remove Luniverse', async function () {
+        expect(await this.token.isLuniverse(deployer)).to.be.equal(true);
+        expect(await this.token.isLuniverse(other)).to.be.equal(false);
+        await expectRevert(
+            this.token.removeLuniverse(deployer, { from : other }),
+            'LuniverseRole: caller does not have the Luniverse role'
+        );
+    });
+
+    it('non-Luniverse cannot remove non-Luniverse', async function () {
+        expect(await this.token.isLuniverse(other)).to.be.equal(false);
+        expect(await this.token.isLuniverse(another)).to.be.equal(false);
+        await expectRevert(
+            this.token.removeLuniverse(another, { from : other }),
+            'LuniverseRole: caller does not have the Luniverse role'
+        );
+    });
+
+    // renounceLuniverse related
+    it('Luniverse can renounce and become a non-Luniverse', async function () {
+        expect(await this.token.isLuniverse(deployer)).to.be.equal(true);
+        await this.token.renounceLuniverse({ from : deployer });
+        expect(await this.token.isLuniverse(deployer)).to.be.equal(false);
+    });
+
+    it('newly added Luniverse can renounce and become a non-Luniverse', async function () {
+        expect(await this.token.isLuniverse(deployer)).to.be.equal(true);
+        expect(await this.token.isLuniverse(other)).to.be.equal(false);
+        await this.token.addLuniverse(other, { from : deployer });
+
+        await this.token.renounceLuniverse({ from : other });
+        expect(await this.token.isLuniverse(other)).to.be.equal(false);
+    });
+
+    it('non-Luniverse cannot renounce', async function () {
+        await expectRevert(
+            this.token.renounceLuniverse({ from : other }),
+            'Roles: account does not have role'
+        );
+
+    });
 });
