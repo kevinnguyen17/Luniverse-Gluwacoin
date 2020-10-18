@@ -635,6 +635,42 @@ describe('LuniverseGluwacoin', function () {
         expect(await this.token.balanceOf(another)).to.be.bignumber.equal(amount.sub(fee));
     });
 
+    it('Gluwa cannot send ETHless transfer with wrong signature', async function () {
+        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+        await this.token.mint(pegTxnHash, { from : deployer });
+
+        var nonce = Date.now();
+        var wrongSignature = sign.sign(this.token.address, other, other_privateKey, another, amount, fee, nonce);
+
+        await expectRevert(
+            this.token.transfer(other, another, amount.sub(fee), fee, nonce, wrongSignature, { from: deployer }),
+            'Validate: invalid signature'
+        );
+    });
+
+    it('Gluwa cannot send ETHless transfer with used nonce', async function () {
+        var mintAmount = amount.add(amount);
+        await this.token.peg(pegTxnHash, mintAmount, other, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+        await this.token.mint(pegTxnHash, { from : deployer });
+
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(mintAmount);
+        expect(await this.token.balanceOf(another)).to.be.bignumber.equal('0');
+
+        var nonce = Date.now();
+
+        var signature = sign.sign(this.token.address, other, other_privateKey, another, amount.sub(fee), fee, nonce);
+
+        await this.token.transfer(other, another, amount.sub(fee), fee, nonce, signature, { from: deployer });
+        await expectRevert(
+            this.token.transfer(other, another, amount.sub(fee), fee, nonce, signature, { from: deployer }),
+            'ETHless: the nonce has already been used for this address'
+        );
+    });
+
     it('non-Gluwa cannot send ETHless transfer', async function () {
         await this.token.peg(pegTxnHash, amount, other, { from : deployer });
         await this.token.gluwaApprove(pegTxnHash, { from : deployer });
