@@ -28,7 +28,7 @@ contract Peggable is Initializable, BeforeTransferERC20, GluwaRole, LuniverseRol
         bool _processed;
     }
 
-    // string mapping to Peg.
+    // transactionHash mapping to Peg.
     mapping (bytes32 => Peg) private _pegged;
 
     function isPegged(bytes32 txnHash) public view returns (bool pegged) {
