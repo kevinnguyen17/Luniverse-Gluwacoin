@@ -12,7 +12,7 @@ const LuniverseGluwacoin = contract.fromArtifact('LuniverseGluwacoinMock');
 var sign = require('./signature');
 
 // Start test block
-describe('LuniverseGluwacoin', function () {
+describe('LuniverseGluwacoin_Initialization', function () {
     const [ deployer, other, another, pegSender ] = accounts;
     const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
 
@@ -31,13 +31,34 @@ describe('LuniverseGluwacoin', function () {
         this.token = await LuniverseGluwacoin.new({ from : deployer });
     });
 
+    it('token name is ' + name, async function () {
+        expect(await this.token.name()).to.equal(name);
+    });
+
+    it('token symbol is ' + symbol, async function () {
+        expect(await this.token.symbol()).to.equal(symbol);
+    });
+
+    it('token decimals are ' + decimals.toString(), async function () {
+        expect(await this.token.decimals()).to.be.bignumber.equal(decimals);
+    });
+
     it('initial totalSupply is 0', async function () {
         expect(await this.token.totalSupply()).to.be.bignumber.equal('0');
+    });
+});
+
+describe('LuniverseGluwacoin_GluwaRole', function () {
+    const [ deployer, other, another ] = accounts;
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new({ from : deployer });
     });
 
     /* GluwaRole related
     */
-    it('deployer is a Gluwa', async function () {
+   it('deployer is a Gluwa', async function () {
         expect(await this.token.isGluwa(deployer)).to.be.equal(true);
     });
 
@@ -45,7 +66,6 @@ describe('LuniverseGluwacoin', function () {
         expect(await this.token.isGluwa(other)).to.be.equal(false);
         expect(await this.token.isGluwa(another)).to.be.equal(false);
     });
-
     // addGluwa related
     it('Gluwa can add non-Gluwa and make it Gluwa', async function () {
         expect(await this.token.isGluwa(deployer)).to.be.equal(true);
@@ -192,10 +212,19 @@ describe('LuniverseGluwacoin', function () {
         );
 
     });
+});
+
+describe('LuniverseGluwacoin_LuniverseRole', function () {
+    const [ deployer, other, another ] = accounts;
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new({ from : deployer });
+    });
 
     /* LuniverseRole related
     */
-    it('deployer is a Luniverse', async function () {
+   it('deployer is a Luniverse', async function () {
         expect(await this.token.isLuniverse(deployer)).to.be.equal(true);
     });
 
@@ -349,7 +378,22 @@ describe('LuniverseGluwacoin', function () {
             'Roles: account does not have role'
         );
     });
+});
 
+describe('LuniverseGluwacoin_Burn', function () {
+    const [ deployer, other, another, pegSender ] = accounts;
+    const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
+
+    const amount = new BN('5000');
+    const fee = new BN('1');
+
+    const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
+    const pegAmount = new BN('1000');
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new({ from : deployer });
+    });
     /* Burnable related
     */
     // burn related
@@ -399,7 +443,26 @@ describe('LuniverseGluwacoin', function () {
             'Reservable: transfer amount exceeds unreserved balance'
         );
     });
+});
 
+describe('LuniverseGluwacoin_Peggable', function () {
+    const [ deployer, other, another, pegSender ] = accounts;
+    const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
+
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
+    const amount = new BN('5000');
+    const fee = new BN('1');
+
+    const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
+    const pegAmount = new BN('1000');
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new({ from : deployer });
+    });
     /* Peggable related
     */
     // peg related
@@ -516,6 +579,26 @@ describe('LuniverseGluwacoin', function () {
             'LuniverseRole: caller does not have the Luniverse role.'
         );
     });
+});
+
+describe('LuniverseGluwacoin_Mint', function () {
+    const [ deployer, other, another, pegSender ] = accounts;
+    const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
+
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
+    const amount = new BN('5000');
+    const fee = new BN('1');
+
+    const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
+    const pegAmount = new BN('1000');
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new({ from : deployer });
+    });
 
     // mint related
     it('Gluwa can mint', async function () {
@@ -629,6 +712,22 @@ describe('LuniverseGluwacoin', function () {
             this.token.mint(pegTxnHash, { from : other }),
             'Peggable: the txnHash is not Luniverse Approved'
         );
+    });
+});
+
+describe('LuniverseGluwacoin_Reservable', function () {
+    const [ deployer, other, another, pegSender ] = accounts;
+    const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
+
+    const amount = new BN('5000');
+    const fee = new BN('1');
+
+    const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
+    const pegAmount = new BN('1000');
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new({ from : deployer });
     });
 
     /* Reservable related
@@ -1227,7 +1326,22 @@ describe('LuniverseGluwacoin', function () {
 
         expect(await this.token.unreservedBalanceOf(other)).to.be.bignumber.equal('0');
     });
+});
 
+describe('LuniverseGluwacoin_ETHless', function () {
+    const [ deployer, other, another, pegSender ] = accounts;
+    const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
+
+    const amount = new BN('5000');
+    const fee = new BN('1');
+
+    const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
+    const pegAmount = new BN('1000');
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new({ from : deployer });
+    });
     /* ETHless related
     */
     it('can send transfer', async function () {
