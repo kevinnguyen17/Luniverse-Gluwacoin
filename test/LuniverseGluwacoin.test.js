@@ -20,12 +20,6 @@ describe('LuniverseGluwacoin_Initialization', function () {
     const symbol = 'LG';
     const decimals = new BN('18');
 
-    const amount = new BN('5000');
-    const fee = new BN('1');
-
-    const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
-    const pegAmount = new BN('1000');
-
     beforeEach(async function () {
         // Deploy a new LuniverseGluwacoin contract for each test
         this.token = await LuniverseGluwacoin.new({ from : deployer });
@@ -66,6 +60,7 @@ describe('LuniverseGluwacoin_GluwaRole', function () {
         expect(await this.token.isGluwa(other)).to.be.equal(false);
         expect(await this.token.isGluwa(another)).to.be.equal(false);
     });
+    
     // addGluwa related
     it('Gluwa can add non-Gluwa and make it Gluwa', async function () {
         expect(await this.token.isGluwa(deployer)).to.be.equal(true);
@@ -446,15 +441,7 @@ describe('LuniverseGluwacoin_Burn', function () {
 });
 
 describe('LuniverseGluwacoin_Peggable', function () {
-    const [ deployer, other, another, pegSender ] = accounts;
-    const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
-
-    const name = 'LuniverseGluwacoin';
-    const symbol = 'LG';
-    const decimals = new BN('18');
-
-    const amount = new BN('5000');
-    const fee = new BN('1');
+    const [ deployer, other, pegSender ] = accounts;
 
     const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
     const pegAmount = new BN('1000');
@@ -582,15 +569,7 @@ describe('LuniverseGluwacoin_Peggable', function () {
 });
 
 describe('LuniverseGluwacoin_Mint', function () {
-    const [ deployer, other, another, pegSender ] = accounts;
-    const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
-
-    const name = 'LuniverseGluwacoin';
-    const symbol = 'LG';
-    const decimals = new BN('18');
-
-    const amount = new BN('5000');
-    const fee = new BN('1');
+    const [ deployer, other, pegSender ] = accounts;
 
     const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
     const pegAmount = new BN('1000');
@@ -716,7 +695,7 @@ describe('LuniverseGluwacoin_Mint', function () {
 });
 
 describe('LuniverseGluwacoin_Reservable', function () {
-    const [ deployer, other, another, pegSender ] = accounts;
+    const [ deployer, other, another ] = accounts;
     const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
 
     const amount = new BN('5000');
