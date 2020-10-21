@@ -60,7 +60,7 @@ describe('LuniverseGluwacoin_GluwaRole', function () {
         expect(await this.token.isGluwa(other)).to.be.equal(false);
         expect(await this.token.isGluwa(another)).to.be.equal(false);
     });
-    
+
     // addGluwa related
     it('Gluwa can add non-Gluwa and make it Gluwa', async function () {
         expect(await this.token.isGluwa(deployer)).to.be.equal(true);
@@ -444,6 +444,7 @@ describe('LuniverseGluwacoin_Peggable', function () {
     const [ deployer, other, pegSender ] = accounts;
 
     const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
+    const invalidPegTxnHash = 'dummy';
     const pegAmount = new BN('1000');
 
     beforeEach(async function () {
@@ -458,12 +459,26 @@ describe('LuniverseGluwacoin_Peggable', function () {
         expect(await this.token.isPegged(pegTxnHash)).to.be.equal(true);
     });
 
+    it('non-Gluwa or non-Luniverse cannot peg', async function () {
+        await expectRevert(
+            this.token.peg(pegTxnHash, pegAmount, pegSender, { from : other }),
+            'Peggable: caller does not have the Gluwa role or the Luniverse role'
+        );
+    });
+
+    it('cannot peg invalid pegTxnHash', async function () {
+        await expectRevert(
+            this.token.peg(invalidPegTxnHash, pegAmount, pegSender, { from : deployer }),
+            'invalid bytes32 value'
+        );
+    });
+
     it('newly-added Gluwa can peg', async function () {
         expect(await this.token.isGluwa(deployer)).to.be.equal(true);
         expect(await this.token.isGluwa(other)).to.be.equal(false);
         await this.token.addGluwa(other, { from : deployer });
         expect(await this.token.isGluwa(other)).to.be.equal(true);
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : other });
         expect(await this.token.isPegged(pegTxnHash)).to.be.equal(true);
     });
 
@@ -472,7 +487,7 @@ describe('LuniverseGluwacoin_Peggable', function () {
         expect(await this.token.isLuniverse(other)).to.be.equal(false);
         await this.token.addLuniverse(other, { from : deployer });
         expect(await this.token.isLuniverse(other)).to.be.equal(true);
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : other });
         expect(await this.token.isPegged(pegTxnHash)).to.be.equal(true);
     });
 
@@ -490,9 +505,8 @@ describe('LuniverseGluwacoin_Peggable', function () {
 
     it('other can get an existing peg', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await this.token.getPeg(pegTxnHash, { from : other });
+        var peg = await this.token.getPeg(pegTxnHash, { from : other });
 
-        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
         expect(peg.amount).to.be.bignumber.equal(pegAmount);
         expect(peg.sender).to.be.bignumber.equal(pegSender);
         expect(!peg.gluwaApproved);
@@ -529,8 +543,31 @@ describe('LuniverseGluwacoin_Peggable', function () {
         );
     });
 
+    it('Gluwa can gluwaApprove with peg from different address', async function () {
+        await this.token.addGluwa(other, { from : deployer });
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        var peg = await this.token.gluwaApprove(pegTxnHash, { from : other });
+        expect(peg.gluwaApproved);
+    });
+
+    it('Gluwa cannot gluwaApprove without peg', async function () {
+        await expectRevert(
+            this.token.gluwaApprove(pegTxnHash, { from : deployer }),
+            'GluwaRole: caller does not have the Gluwa role'
+        );
+    });
+
     it('non-Gluwa cannot gluwaApprove', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await expectRevert(
+            this.token.gluwaApprove(pegTxnHash, { from : other }),
+            'GluwaRole: caller does not have the Gluwa role'
+        );
+    });
+
+    it('Luniverse cannot gluwaApprove', async function () {
+        await this.token.addLuniverse(other, { from : deployer });
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : other });
         await expectRevert(
             this.token.gluwaApprove(pegTxnHash, { from : other }),
             'GluwaRole: caller does not have the Gluwa role'
@@ -543,6 +580,13 @@ describe('LuniverseGluwacoin_Peggable', function () {
         await this.token.luniverseApprove(pegTxnHash, { from : deployer });
 
         var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.luniverseApproved);
+    });
+
+    it('Luniverse can luniverseApprove with peg from different address', async function () {
+        await this.token.addLuniverse(other, { from : deployer });
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        var peg = await this.token.luniverseApprove(pegTxnHash, { from : other });
         expect(peg.luniverseApproved);
     });
 
@@ -559,8 +603,25 @@ describe('LuniverseGluwacoin_Peggable', function () {
         );
     });
 
+    it('Luniverse cannot luniverseApprove without peg', async function () {
+        await this.token.addLuniverse(other, { from : deployer });
+        await expectRevert(
+            this.token.luniverseApprove(pegTxnHash, { from : other }),
+            'GluwaRole: caller does not have the Gluwa role'
+        );
+    });
+
     it('non-Luniverse cannot luniverseApprove', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await expectRevert(
+            this.token.luniverseApprove(pegTxnHash, { from : other }),
+            'LuniverseRole: caller does not have the Luniverse role.'
+        );
+    });
+
+    it('Gluwa cannot luniverseApprove', async function () {
+        await this.token.addGluwa(other, { from : deployer });
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : other });
         await expectRevert(
             this.token.luniverseApprove(pegTxnHash, { from : other }),
             'LuniverseRole: caller does not have the Luniverse role.'
