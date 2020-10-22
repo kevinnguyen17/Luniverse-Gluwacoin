@@ -465,6 +465,16 @@ describe('LuniverseGluwacoin_Peggable', function () {
         expect(peg.gluwaApproved);
     });
 
+    it('newly-added Gluwa can gluwaApprove', async function () {
+        await this.token.addGluwa(other, { from : deployer });
+        expect(await this.token.isGluwa(other)).to.be.equal(true);
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : other });
+        await this.token.gluwaApprove(pegTxnHash, { from : other });
+
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.gluwaApproved);
+    });
+
     it('Gluwa cannot gluwaApprove already gluwaApproved', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
         await this.token.gluwaApprove(pegTxnHash, { from : deployer });
@@ -513,6 +523,16 @@ describe('LuniverseGluwacoin_Peggable', function () {
     it('Luniverse can luniverseApprove', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
         await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.luniverseApproved);
+    });
+
+    it('newly-added Luniverse can luniverseApprove', async function () {
+        await this.token.addLuniverse(other, { from : deployer });
+        expect(await this.token.isLuniverse(other)).to.be.equal(true);
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : other });
+        await this.token.luniverseApprove(pegTxnHash, { from : other });
 
         var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
         expect(peg.luniverseApproved);
@@ -608,7 +628,7 @@ describe('LuniverseGluwacoin_Mint', function () {
         await this.token.addGluwa(other, { from : deployer });
         await this.token.mint(pegTxnHash, { from : other });
 
-        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        var peg = await this.token.getPeg(pegTxnHash, { from : other });
         expect(peg.processed);
 
         expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
@@ -623,7 +643,7 @@ describe('LuniverseGluwacoin_Mint', function () {
         await this.token.addLuniverse(other, { from : deployer });
         await this.token.mint(pegTxnHash, { from : other });
 
-        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        var peg = await this.token.getPeg(pegTxnHash, { from : other });
         expect(peg.processed);
 
         expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
@@ -684,7 +704,7 @@ describe('LuniverseGluwacoin_Mint', function () {
         );
     });
 
-    it('newly-added Gluwa cannot mint not gluwaApproved peg', async function () {
+    it('newly-added Gluwa cannot mint without gluwaApproved peg', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
         await this.token.luniverseApprove(pegTxnHash, { from : deployer });
 
@@ -695,7 +715,7 @@ describe('LuniverseGluwacoin_Mint', function () {
         );
     });
 
-    it('newly-added Gluwa cannot mint not luniverseApproved peg', async function () {
+    it('newly-added Gluwa cannot mint without luniverseApproved peg', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
         await this.token.gluwaApprove(pegTxnHash, { from : deployer });
 
@@ -965,7 +985,31 @@ describe('LuniverseGluwacoin_Reservable', function () {
         );
     });
 
-    it('Gluwa cannot reserve if not amount + fee > 0', async function () {
+    it('Gluwa cannot reserve if not amount = 0', async function () {
+        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+        await this.token.mint(pegTxnHash, { from : deployer });
+
+        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
+
+        var executor = deployer;
+        var reserve_amount = new BN('0');
+        var reserve_fee = fee;
+        var latestBlock = await time.latestBlock();
+        var expiryBlockNum = latestBlock.add(new BN('100'));
+        var nonce = Date.now();
+
+        var signature = sign.sign(this.token.address, other, other_privateKey, another, reserve_amount, reserve_fee, nonce);
+
+        await expectRevert(
+            this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer }),
+            'Reservable: invalid reserve amount'
+        );
+    });
+
+    it('Gluwa cannot reserve if not amount + fee = 0', async function () {
         await this.token.peg(pegTxnHash, amount, other, { from : deployer });
         await this.token.gluwaApprove(pegTxnHash, { from : deployer });
         await this.token.luniverseApprove(pegTxnHash, { from : deployer });
@@ -986,6 +1030,57 @@ describe('LuniverseGluwacoin_Reservable', function () {
         await expectRevert(
             this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer }),
             'Reservable: invalid reserve amount'
+        );
+    });
+
+    it('cannot reserve if nonce is already used', async function () {
+        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+        await this.token.mint(pegTxnHash, { from : deployer });
+
+        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
+
+        var executor = deployer;
+        var reserve_amount = amount.sub(fee);
+        var reserve_fee = fee;
+        var latestBlock = await time.latestBlock();
+        var expiryBlockNum = latestBlock.add(new BN('100'));
+        var nonce = Date.now();
+
+        var signature = sign.sign(this.token.address, other, other_privateKey, another, reserve_amount, reserve_fee, nonce);
+
+        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
+
+        await expectRevert(
+            this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer }),
+            'ERC20Reservable: the sender used the nonce already'
+        );
+    });
+
+    it('cannot reserve if signature is invalid', async function () {
+        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+        await this.token.mint(pegTxnHash, { from : deployer });
+
+        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
+
+        var executor = deployer;
+        var reserve_amount = amount.sub(fee);
+        var reserve_fee = fee;
+        var dummy_amount = amount.sub(fee).sub(fee); 
+        var latestBlock = await time.latestBlock();
+        var expiryBlockNum = latestBlock.add(new BN('100'));
+        var nonce = Date.now();
+
+        var signature = sign.sign(this.token.address, other, other_privateKey, another, dummy_amount, reserve_fee, nonce);
+
+        await expectRevert(
+            this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer }),
+            'Validate: invalid signature'
         );
     });
 
@@ -1174,6 +1269,14 @@ describe('LuniverseGluwacoin_Reservable', function () {
         );
     });
 
+    it('cannot execute non existing reserve', async function () {
+        var nonce = Date.now();
+        await expectRevert(
+            this.token.execute(other, nonce, { from: deployer }),
+            'ERC20Reservable: reservation does not exist'
+        );
+    });
+
     it('executor can reclaim expired reserve', async function () {
         await this.token.peg(pegTxnHash, amount, other, { from : deployer });
         await this.token.gluwaApprove(pegTxnHash, { from : deployer });
@@ -1327,6 +1430,30 @@ describe('LuniverseGluwacoin_Reservable', function () {
         );
     });
 
+    it('executor cannot reclaim from no reservation', async function () {
+        var nonce = Date.now();
+        await expectRevert(
+            this.token.reclaim(other, nonce, { from: deployer }),
+            'Reservable: reservation does not exist'
+        );
+    });
+
+    it('sender cannot reclaim from no reservation', async function () {
+        var nonce = Date.now();
+        await expectRevert(
+            this.token.reclaim(other, nonce, { from: other }),
+            'Reservable: reservation does not exist'
+        );
+    });
+
+    it('receiver cannot reclaim from no reservation', async function () {
+        var nonce = Date.now();
+        await expectRevert(
+            this.token.reclaim(other, nonce, { from: another }),
+            'ERC20ReseReservablervable: reservation does not exist'
+        );
+    });
+
     it('reservedBalanceOf accurate after reserve', async function () {
         await this.token.peg(pegTxnHash, amount, other, { from : deployer });
         await this.token.gluwaApprove(pegTxnHash, { from : deployer });
@@ -1438,7 +1565,7 @@ describe('LuniverseGluwacoin_Reservable', function () {
 
 describe('LuniverseGluwacoin_ETHless', function () {
     const [ deployer, other, another, pegSender ] = accounts;
-    const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
+    const [ deployer_privateKey, other_privateKey, another_privateKey, pegSender_privateKey ] = privateKeys;
 
     const amount = new BN('5000');
     const fee = new BN('1');
@@ -1477,8 +1604,62 @@ describe('LuniverseGluwacoin_ETHless', function () {
         await this.token.transfer(other, another, amount.sub(fee), fee, nonce, signature, { from: deployer });
 
         expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal(fee);
+        expect(await this.token.totalSupply()).to.be.bignumber.equal(amount);
+
         expect(await this.token.balanceOf(other)).to.be.bignumber.equal('0');
         expect(await this.token.balanceOf(another)).to.be.bignumber.equal(amount.sub(fee));
+    });
+
+    it('newly-added Gluwa can send ETHless transfer', async function () {
+        await this.token.addGluwa(other, { from : deployer });
+
+        await this.token.peg(pegTxnHash, amount, pegSender, { from : other });
+        await this.token.gluwaApprove(pegTxnHash, { from : other });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+        await this.token.mint(pegTxnHash, { from : other });
+
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(amount);
+        expect(await this.token.balanceOf(another)).to.be.bignumber.equal('0');
+
+        var nonce = Date.now();
+
+        var signature = sign.sign(this.token.address, pegSender, pegSender_privateKey, another, amount.sub(fee), fee, nonce);
+
+        await this.token.transfer(pegSender, another, amount.sub(fee), fee, nonce, signature, { from: other });
+
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(fee);
+        expect(await this.token.totalSupply()).to.be.bignumber.equal(amount);
+
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal('0');
+        expect(await this.token.balanceOf(another)).to.be.bignumber.equal(amount.sub(fee));
+    });
+
+    it('newly-added Luniverse cannot send ETHless transfer', async function () {
+        await this.token.addLuniverse(other, { from : deployer });
+
+        await this.token.peg(pegTxnHash, amount, pegSender, { from : other });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : other });
+
+        await this.token.mint(pegTxnHash, { from : other });
+
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(amount);
+        expect(await this.token.balanceOf(another)).to.be.bignumber.equal('0');
+
+        var nonce = Date.now();
+
+        var signature = sign.sign(this.token.address, pegSender, pegSender_privateKey, another, amount.sub(fee), fee, nonce);
+        
+        await expectRevert(
+            this.token.transfer(pegSender, another, amount.sub(fee), fee, nonce, signature, { from: other }),
+            "caller does not have the Gluwa role"
+        );
+
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal('0');
+        expect(await this.token.totalSupply()).to.be.bignumber.equal(amount);
+
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(amount);
+        expect(await this.token.balanceOf(another)).to.be.bignumber.equal('0');
     });
 
     it('Gluwa cannot send ETHless transfer with wrong signature', async function () {
