@@ -1473,7 +1473,7 @@ describe('LuniverseGluwacoin_Reservable', function () {
         var nonce = Date.now();
         await expectRevert(
             this.token.reclaim(other, nonce, { from: another }),
-            'ERC20ReseReservablervable: reservation does not exist'
+            'Reservable: reservation does not exist'
         );
     });
 
