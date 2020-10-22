@@ -8,8 +8,11 @@ import "../LuniverseGluwacoin.sol";
 contract LuniverseGluwacoinMock is Initializable, LuniverseGluwacoin {
 
     constructor(
+        string memory name,
+        string memory symbol,
+        uint8 decimals
     ) public {
-        initialize();
+        initialize(name, symbol, decimals);
     }
 
     uint256[50] private __gap;

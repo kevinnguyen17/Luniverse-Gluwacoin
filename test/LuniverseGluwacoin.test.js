@@ -12,32 +12,50 @@ const LuniverseGluwacoin = contract.fromArtifact('LuniverseGluwacoinMock');
 var sign = require('./signature');
 
 // Start test block
-describe('LuniverseGluwacoin', function () {
-    const [ deployer, other, another, pegSender ] = accounts;
-    const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
+describe('LuniverseGluwacoin_Initialization', function () {
+    const [ deployer ] = accounts;
 
     const name = 'LuniverseGluwacoin';
     const symbol = 'LG';
     const decimals = new BN('18');
 
-    const amount = new BN('5000');
-    const fee = new BN('1');
-
-    const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
-    const pegAmount = new BN('1000');
-
     beforeEach(async function () {
         // Deploy a new LuniverseGluwacoin contract for each test
-        this.token = await LuniverseGluwacoin.new({ from : deployer });
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
+    });
+
+    it('token name is ' + name, async function () {
+        expect(await this.token.name()).to.equal(name);
+    });
+
+    it('token symbol is ' + symbol, async function () {
+        expect(await this.token.symbol()).to.equal(symbol);
+    });
+
+    it('token decimals are ' + decimals.toString(), async function () {
+        expect(await this.token.decimals()).to.be.bignumber.equal(decimals);
     });
 
     it('initial totalSupply is 0', async function () {
         expect(await this.token.totalSupply()).to.be.bignumber.equal('0');
     });
+});
+
+describe('LuniverseGluwacoin_GluwaRole', function () {
+    const [ deployer, other, another ] = accounts;
+
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
+    });
 
     /* GluwaRole related
     */
-    it('deployer is a Gluwa', async function () {
+   it('deployer is a Gluwa', async function () {
         expect(await this.token.isGluwa(deployer)).to.be.equal(true);
     });
 
@@ -192,10 +210,23 @@ describe('LuniverseGluwacoin', function () {
         );
 
     });
+});
+
+describe('LuniverseGluwacoin_LuniverseRole', function () {
+    const [ deployer, other, another ] = accounts;
+
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
+    });
 
     /* LuniverseRole related
     */
-    it('deployer is a Luniverse', async function () {
+   it('deployer is a Luniverse', async function () {
         expect(await this.token.isLuniverse(deployer)).to.be.equal(true);
     });
 
@@ -349,7 +380,402 @@ describe('LuniverseGluwacoin', function () {
             'Roles: account does not have role'
         );
     });
+});
 
+describe('LuniverseGluwacoin_Peggable', function () {
+    const [ deployer, other, pegSender ] = accounts;
+
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
+    const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
+    const invalidPegTxnHash = 'dummy';
+    const pegAmount = new BN('1000');
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
+    });
+    /* Peggable related
+    */
+    // peg related
+    it('Gluwa can peg', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        expect(await this.token.isPegged(pegTxnHash)).to.be.equal(true);
+    });
+
+    it('non-Gluwa or non-Luniverse cannot peg', async function () {
+        await expectRevert(
+            this.token.peg(pegTxnHash, pegAmount, pegSender, { from : other }),
+            'Peggable: caller does not have the Gluwa role or the Luniverse role'
+        );
+    });
+
+    it('cannot peg invalid pegTxnHash', async function () {
+        await expectRevert(
+            this.token.peg(invalidPegTxnHash, pegAmount, pegSender, { from : deployer }),
+            'invalid bytes32 value'
+        );
+    });
+
+    it('newly-added Gluwa can peg', async function () {
+        expect(await this.token.isGluwa(deployer)).to.be.equal(true);
+        expect(await this.token.isGluwa(other)).to.be.equal(false);
+        await this.token.addGluwa(other, { from : deployer });
+        expect(await this.token.isGluwa(other)).to.be.equal(true);
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : other });
+        expect(await this.token.isPegged(pegTxnHash)).to.be.equal(true);
+    });
+
+    it('newly-added Luniverse can peg', async function () {
+        expect(await this.token.isLuniverse(deployer)).to.be.equal(true);
+        expect(await this.token.isLuniverse(other)).to.be.equal(false);
+        await this.token.addLuniverse(other, { from : deployer });
+        expect(await this.token.isLuniverse(other)).to.be.equal(true);
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : other });
+        expect(await this.token.isPegged(pegTxnHash)).to.be.equal(true);
+    });
+
+    // getPeg related
+    it('Gluwa can get an existing peg', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.amount).to.be.bignumber.equal(pegAmount);
+        expect(peg.sender).to.be.bignumber.equal(pegSender);
+        expect(!peg.gluwaApproved);
+        expect(!peg.luniverseApproved);
+        expect(!peg.processed);
+    });
+
+    it('other can get an existing peg', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        var peg = await this.token.getPeg(pegTxnHash, { from : other });
+
+        expect(peg.amount).to.be.bignumber.equal(pegAmount);
+        expect(peg.sender).to.be.bignumber.equal(pegSender);
+        expect(!peg.gluwaApproved);
+        expect(!peg.luniverseApproved);
+        expect(!peg.processed);
+    });
+
+    it('cannot get a non-existing peg', async function () {
+        await expectRevert(
+            this.token.getPeg(pegTxnHash, { from : deployer }),
+            'Peggable: the txnHash is not pegged'
+        );
+    });
+
+    // gluwaApprove related
+    it('Gluwa can gluwaApprove', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.gluwaApproved);
+    });
+
+    it('Gluwa cannot gluwaApprove already gluwaApproved', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.gluwaApproved);
+
+        await expectRevert(
+            this.token.gluwaApprove(pegTxnHash, { from : deployer }),
+            'Peggable: the txnHash is already Gluwa Approved'
+        );
+    });
+
+    it('Gluwa can gluwaApprove with peg from different address', async function () {
+        await this.token.addGluwa(other, { from : deployer });
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        var peg = await this.token.gluwaApprove(pegTxnHash, { from : other });
+        expect(peg.gluwaApproved);
+    });
+
+    it('Gluwa cannot gluwaApprove without peg', async function () {
+        await expectRevert(
+            this.token.gluwaApprove(pegTxnHash, { from : deployer }),
+            'Peggable: the txnHash is not pegged'
+        );
+    });
+
+    it('non-Gluwa cannot gluwaApprove', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await expectRevert(
+            this.token.gluwaApprove(pegTxnHash, { from : other }),
+            'GluwaRole: caller does not have the Gluwa role'
+        );
+    });
+
+    it('Luniverse cannot gluwaApprove', async function () {
+        await this.token.addLuniverse(other, { from : deployer });
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : other });
+        await expectRevert(
+            this.token.gluwaApprove(pegTxnHash, { from : other }),
+            'GluwaRole: caller does not have the Gluwa role'
+        );
+    });
+
+    // luniverseApprove related
+    it('Luniverse can luniverseApprove', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.luniverseApproved);
+    });
+
+    it('Luniverse can luniverseApprove with peg from different address', async function () {
+        await this.token.addLuniverse(other, { from : deployer });
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        var peg = await this.token.luniverseApprove(pegTxnHash, { from : other });
+        expect(peg.luniverseApproved);
+    });
+
+    it('Luniverse cannot luniverseApprove already luniverseApproved', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.luniverseApproved);
+
+        await expectRevert(
+            this.token.luniverseApprove(pegTxnHash, { from : deployer }),
+            'Peggable: the txnHash is already Luniverse Approved'
+        );
+    });
+
+    it('Luniverse cannot luniverseApprove without peg', async function () {
+        await this.token.addLuniverse(other, { from : deployer });
+        await expectRevert(
+            this.token.luniverseApprove(pegTxnHash, { from : other }),
+            'Peggable: the txnHash is not pegged'
+        );
+    });
+
+    it('non-Luniverse cannot luniverseApprove', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await expectRevert(
+            this.token.luniverseApprove(pegTxnHash, { from : other }),
+            'LuniverseRole: caller does not have the Luniverse role.'
+        );
+    });
+
+    it('Gluwa cannot luniverseApprove', async function () {
+        await this.token.addGluwa(other, { from : deployer });
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : other });
+        await expectRevert(
+            this.token.luniverseApprove(pegTxnHash, { from : other }),
+            'LuniverseRole: caller does not have the Luniverse role.'
+        );
+    });
+});
+
+describe('LuniverseGluwacoin_Mint', function () {
+    const [ deployer, other, pegSender ] = accounts;
+
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
+    const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
+    const notPegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8621';
+    const pegAmount = new BN('1000');
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
+    });
+
+    // mint related
+    it('Gluwa/Luniverse can mint', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await this.token.mint(pegTxnHash, { from : deployer });
+
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.processed);
+
+        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
+    });
+
+    it('Gluwa/Luniverse mint emits a Transfer event', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        var receipt = await this.token.mint(pegTxnHash, { from : deployer });
+        expectEvent(receipt, 'Transfer', { from: ZERO_ADDRESS, to: pegSender, value: pegAmount });
+    });
+
+    it('newly-added Gluwa can mint', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await this.token.addGluwa(other, { from : deployer });
+        await this.token.mint(pegTxnHash, { from : other });
+
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.processed);
+
+        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
+    });
+
+    it('newly-added Luniverse can mint', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await this.token.addLuniverse(other, { from : deployer });
+        await this.token.mint(pegTxnHash, { from : other });
+
+        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
+        expect(peg.processed);
+
+        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
+    });
+
+    it('Gluwa cannot mint already processed', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await this.token.mint(pegTxnHash, { from : deployer });
+
+        await expectRevert(
+            this.token.mint(pegTxnHash, { from : deployer }),
+            'Peggable: the txnHash is already processed'
+        );
+    });
+
+    it('Gluwa cannot mint with random 32bytes', async function () {
+        await expectRevert(
+            this.token.mint(notPegTxnHash, { from : deployer }),
+            'Peggable: the txnHash is not pegged'
+        );
+    });
+
+    it('Gluwa cannot mint without gluwaApproved peg', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await expectRevert(
+            this.token.mint(pegTxnHash, { from : deployer }),
+            'Peggable: the txnHash is not Gluwa Approved'
+        );
+    });
+
+    it('Gluwa cannot mint without luniverseApproved peg', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+
+        await expectRevert(
+            this.token.mint(pegTxnHash, { from : deployer }),
+            'Peggable: the txnHash is not Luniverse Approved'
+        );
+    });
+
+    it('newly-added Gluwa cannot mint already processed', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await this.token.mint(pegTxnHash, { from : deployer });
+
+        await this.token.addGluwa(other, { from : deployer });
+        await expectRevert(
+            this.token.mint(pegTxnHash, { from : other }),
+            'Peggable: the txnHash is already processed'
+        );
+    });
+
+    it('newly-added Gluwa cannot mint not gluwaApproved peg', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await this.token.addGluwa(other, { from : deployer });
+        await expectRevert(
+            this.token.mint(pegTxnHash, { from : other }),
+            'Peggable: the txnHash is not Gluwa Approved'
+        );
+    });
+
+    it('newly-added Gluwa cannot mint not luniverseApproved peg', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+
+        await this.token.addGluwa(other, { from : deployer });
+        await expectRevert(
+            this.token.mint(pegTxnHash, { from : other }),
+            'Peggable: the txnHash is not Luniverse Approved'
+        );
+    });
+
+    it('newly-added Luniverse cannot mint already processed', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await this.token.mint(pegTxnHash, { from : deployer });
+
+        await this.token.addLuniverse(other, { from : deployer });
+        await expectRevert(
+            this.token.mint(pegTxnHash, { from : other }),
+            'Peggable: the txnHash is already processed'
+        );
+    });
+
+    it('newly-added Luniverse cannot mint not gluwaApproved peg', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await this.token.addLuniverse(other, { from : deployer });
+        await expectRevert(
+            this.token.mint(pegTxnHash, { from : other }),
+            'Peggable: the txnHash is not Gluwa Approved'
+        );
+    });
+
+    it('newly-added Luniverse cannot mint not luniverseApproved peg', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+
+        await this.token.addLuniverse(other, { from : deployer });
+        await expectRevert(
+            this.token.mint(pegTxnHash, { from : other }),
+            'Peggable: the txnHash is not Luniverse Approved'
+        );
+    });
+});
+
+describe('LuniverseGluwacoin_Burn', function () {
+    const [ deployer, other, another, pegSender ] = accounts;
+    const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
+
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
+    const amount = new BN('5000');
+    const fee = new BN('1');
+
+    const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
+    const pegAmount = new BN('1000');
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
+    });
     /* Burnable related
     */
     // burn related
@@ -400,235 +826,39 @@ describe('LuniverseGluwacoin', function () {
         );
     });
 
-    /* Peggable related
-    */
-    // peg related
-    it('Gluwa can peg', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        expect(await this.token.isPegged(pegTxnHash)).to.be.equal(true);
-    });
-
-    it('newly-added Gluwa can peg', async function () {
-        expect(await this.token.isGluwa(deployer)).to.be.equal(true);
-        expect(await this.token.isGluwa(other)).to.be.equal(false);
-        await this.token.addGluwa(other, { from : deployer });
-        expect(await this.token.isGluwa(other)).to.be.equal(true);
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        expect(await this.token.isPegged(pegTxnHash)).to.be.equal(true);
-    });
-
-    it('newly-added Luniverse can peg', async function () {
-        expect(await this.token.isLuniverse(deployer)).to.be.equal(true);
-        expect(await this.token.isLuniverse(other)).to.be.equal(false);
-        await this.token.addLuniverse(other, { from : deployer });
-        expect(await this.token.isLuniverse(other)).to.be.equal(true);
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        expect(await this.token.isPegged(pegTxnHash)).to.be.equal(true);
-    });
-
-    // getPeg related
-    it('Gluwa can get an existing peg', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-
-        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
-        expect(peg.amount).to.be.bignumber.equal(pegAmount);
-        expect(peg.sender).to.be.bignumber.equal(pegSender);
-        expect(!peg.gluwaApproved);
-        expect(!peg.luniverseApproved);
-        expect(!peg.processed);
-    });
-
-    it('other can get an existing peg', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await this.token.getPeg(pegTxnHash, { from : other });
-
-        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
-        expect(peg.amount).to.be.bignumber.equal(pegAmount);
-        expect(peg.sender).to.be.bignumber.equal(pegSender);
-        expect(!peg.gluwaApproved);
-        expect(!peg.luniverseApproved);
-        expect(!peg.processed);
-    });
-
-    it('cannot get a non-existing peg', async function () {
-        await expectRevert(
-            this.token.getPeg(pegTxnHash, { from : deployer }),
-            'Peggable: the txnHash is not pegged'
-        );
-    });
-
-    // gluwaApprove related
-    it('Gluwa can gluwaApprove', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-
-        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
-        expect(peg.gluwaApproved);
-    });
-
-    it('Gluwa cannot gluwaApprove already gluwaApproved', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-
-        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
-        expect(peg.gluwaApproved);
-
-        await expectRevert(
-            this.token.gluwaApprove(pegTxnHash, { from : deployer }),
-            'Peggable: the txnHash is already Gluwa Approved'
-        );
-    });
-
-    it('non-Gluwa cannot gluwaApprove', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await expectRevert(
-            this.token.gluwaApprove(pegTxnHash, { from : other }),
-            'GluwaRole: caller does not have the Gluwa role'
-        );
-    });
-
-    // luniverseApprove related
-    it('Luniverse can luniverseApprove', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-
-        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
-        expect(peg.luniverseApproved);
-    });
-
-    it('Luniverse cannot luniverseApprove already luniverseApproved', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-
-        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
-        expect(peg.luniverseApproved);
-
-        await expectRevert(
-            this.token.luniverseApprove(pegTxnHash, { from : deployer }),
-            'Peggable: the txnHash is already Luniverse Approved'
-        );
-    });
-
-    it('non-Luniverse cannot luniverseApprove', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await expectRevert(
-            this.token.luniverseApprove(pegTxnHash, { from : other }),
-            'LuniverseRole: caller does not have the Luniverse role.'
-        );
-    });
-
-    // mint related
-    it('Gluwa can mint', async function () {
+    it('burn emits a Transfer event', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
         await this.token.gluwaApprove(pegTxnHash, { from : deployer });
         await this.token.luniverseApprove(pegTxnHash, { from : deployer });
 
         await this.token.mint(pegTxnHash, { from : deployer });
-
-        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
-        expect(peg.processed);
-
         expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
         expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
+
+        const burnAmount = new BN('100');
+        const receipt = await this.token.burn(burnAmount, { from: pegSender });
+
+        expectEvent(receipt, 'Transfer', { from: pegSender, to: ZERO_ADDRESS, value: burnAmount });
     });
+});
 
-    it('newly-added Gluwa can mint', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+describe('LuniverseGluwacoin_Reservable', function () {
+    const [ deployer, other, another ] = accounts;
+    const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
 
-        await this.token.addGluwa(other, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : other });
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
 
-        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
-        expect(peg.processed);
+    const amount = new BN('5000');
+    const fee = new BN('1');
 
-        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
-        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
-    });
+    const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
+    const pegAmount = new BN('1000');
 
-    it('newly-added Luniverse can mint', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-
-        await this.token.addLuniverse(other, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : other });
-
-        var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
-        expect(peg.processed);
-
-        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
-        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
-    });
-
-    it('Gluwa cannot mint already processed', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        await expectRevert(
-            this.token.mint(pegTxnHash, { from : deployer }),
-            'Peggable: the txnHash is already processed'
-        );
-    });
-
-    it('Gluwa cannot mint not gluwaApproved peg', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-
-        await expectRevert(
-            this.token.mint(pegTxnHash, { from : deployer }),
-            'Peggable: the txnHash is not Gluwa Approved'
-        );
-    });
-
-    it('Gluwa cannot mint not luniverseApproved peg', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-
-        await expectRevert(
-            this.token.mint(pegTxnHash, { from : deployer }),
-            'Peggable: the txnHash is not Luniverse Approved'
-        );
-    });
-
-    it('newly-added Luniverse cannot mint already processed', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        await this.token.addLuniverse(other, { from : deployer });
-        await expectRevert(
-            this.token.mint(pegTxnHash, { from : other }),
-            'Peggable: the txnHash is already processed'
-        );
-    });
-
-    it('newly-added Luniverse cannot mint not gluwaApproved peg', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-
-        await this.token.addLuniverse(other, { from : deployer });
-        await expectRevert(
-            this.token.mint(pegTxnHash, { from : other }),
-            'Peggable: the txnHash is not Gluwa Approved'
-        );
-    });
-
-    it('newly-added Luniverse cannot mint not luniverseApproved peg', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-
-        await this.token.addLuniverse(other, { from : deployer });
-        await expectRevert(
-            this.token.mint(pegTxnHash, { from : other }),
-            'Peggable: the txnHash is not Luniverse Approved'
-        );
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
     });
 
     /* Reservable related
@@ -1227,7 +1457,26 @@ describe('LuniverseGluwacoin', function () {
 
         expect(await this.token.unreservedBalanceOf(other)).to.be.bignumber.equal('0');
     });
+});
 
+describe('LuniverseGluwacoin_ETHless', function () {
+    const [ deployer, other, another, pegSender ] = accounts;
+    const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
+
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
+    const amount = new BN('5000');
+    const fee = new BN('1');
+
+    const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
+    const pegAmount = new BN('1000');
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
+    });
     /* ETHless related
     */
     it('can send transfer', async function () {
