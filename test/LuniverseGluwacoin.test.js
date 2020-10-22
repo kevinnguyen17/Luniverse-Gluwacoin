@@ -13,8 +13,7 @@ var sign = require('./signature');
 
 // Start test block
 describe('LuniverseGluwacoin_Initialization', function () {
-    const [ deployer, other, another, pegSender ] = accounts;
-    const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
+    const [ deployer ] = accounts;
 
     const name = 'LuniverseGluwacoin';
     const symbol = 'LG';
@@ -22,7 +21,7 @@ describe('LuniverseGluwacoin_Initialization', function () {
 
     beforeEach(async function () {
         // Deploy a new LuniverseGluwacoin contract for each test
-        this.token = await LuniverseGluwacoin.new({ from : deployer });
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
     });
 
     it('token name is ' + name, async function () {
@@ -45,9 +44,13 @@ describe('LuniverseGluwacoin_Initialization', function () {
 describe('LuniverseGluwacoin_GluwaRole', function () {
     const [ deployer, other, another ] = accounts;
 
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
     beforeEach(async function () {
         // Deploy a new LuniverseGluwacoin contract for each test
-        this.token = await LuniverseGluwacoin.new({ from : deployer });
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
     });
 
     /* GluwaRole related
@@ -212,9 +215,13 @@ describe('LuniverseGluwacoin_GluwaRole', function () {
 describe('LuniverseGluwacoin_LuniverseRole', function () {
     const [ deployer, other, another ] = accounts;
 
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
     beforeEach(async function () {
         // Deploy a new LuniverseGluwacoin contract for each test
-        this.token = await LuniverseGluwacoin.new({ from : deployer });
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
     });
 
     /* LuniverseRole related
@@ -378,13 +385,17 @@ describe('LuniverseGluwacoin_LuniverseRole', function () {
 describe('LuniverseGluwacoin_Peggable', function () {
     const [ deployer, other, pegSender ] = accounts;
 
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
     const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
     const invalidPegTxnHash = 'dummy';
     const pegAmount = new BN('1000');
 
     beforeEach(async function () {
         // Deploy a new LuniverseGluwacoin contract for each test
-        this.token = await LuniverseGluwacoin.new({ from : deployer });
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
     });
     /* Peggable related
     */
@@ -498,7 +509,7 @@ describe('LuniverseGluwacoin_Peggable', function () {
     it('Gluwa cannot gluwaApprove without peg', async function () {
         await expectRevert(
             this.token.gluwaApprove(pegTxnHash, { from : deployer }),
-            'GluwaRole: caller does not have the Gluwa role'
+            'Peggable: the txnHash is not pegged'
         );
     });
 
@@ -562,7 +573,7 @@ describe('LuniverseGluwacoin_Peggable', function () {
         await this.token.addLuniverse(other, { from : deployer });
         await expectRevert(
             this.token.luniverseApprove(pegTxnHash, { from : other }),
-            'GluwaRole: caller does not have the Gluwa role'
+            'Peggable: the txnHash is not pegged'
         );
     });
 
@@ -587,13 +598,17 @@ describe('LuniverseGluwacoin_Peggable', function () {
 describe('LuniverseGluwacoin_Mint', function () {
     const [ deployer, other, pegSender ] = accounts;
 
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
     const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
     const notPegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8621';
     const pegAmount = new BN('1000');
 
     beforeEach(async function () {
         // Deploy a new LuniverseGluwacoin contract for each test
-        this.token = await LuniverseGluwacoin.new({ from : deployer });
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
     });
 
     // mint related
@@ -666,7 +681,7 @@ describe('LuniverseGluwacoin_Mint', function () {
     it('Gluwa cannot mint with random 32bytes', async function () {
         await expectRevert(
             this.token.mint(notPegTxnHash, { from : deployer }),
-            'Peggable: the txnHash is not Gluwa Approved'
+            'Peggable: the txnHash is not pegged'
         );
     });
 
@@ -767,6 +782,10 @@ describe('LuniverseGluwacoin_Burn', function () {
     const [ deployer, other, another, pegSender ] = accounts;
     const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
 
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
     const amount = new BN('5000');
     const fee = new BN('1');
 
@@ -775,7 +794,7 @@ describe('LuniverseGluwacoin_Burn', function () {
 
     beforeEach(async function () {
         // Deploy a new LuniverseGluwacoin contract for each test
-        this.token = await LuniverseGluwacoin.new({ from : deployer });
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
     });
     /* Burnable related
     */
@@ -847,6 +866,10 @@ describe('LuniverseGluwacoin_Reservable', function () {
     const [ deployer, other, another ] = accounts;
     const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
 
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
     const amount = new BN('5000');
     const fee = new BN('1');
 
@@ -855,7 +878,7 @@ describe('LuniverseGluwacoin_Reservable', function () {
 
     beforeEach(async function () {
         // Deploy a new LuniverseGluwacoin contract for each test
-        this.token = await LuniverseGluwacoin.new({ from : deployer });
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
     });
 
     /* Reservable related
@@ -1567,6 +1590,10 @@ describe('LuniverseGluwacoin_ETHless', function () {
     const [ deployer, other, another, pegSender ] = accounts;
     const [ deployer_privateKey, other_privateKey, another_privateKey, pegSender_privateKey ] = privateKeys;
 
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
     const amount = new BN('5000');
     const fee = new BN('1');
 
@@ -1575,7 +1602,7 @@ describe('LuniverseGluwacoin_ETHless', function () {
 
     beforeEach(async function () {
         // Deploy a new LuniverseGluwacoin contract for each test
-        this.token = await LuniverseGluwacoin.new({ from : deployer });
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
     });
     /* ETHless related
     */

@@ -28,7 +28,7 @@ contract Peggable is Initializable, BeforeTransferERC20, GluwaRole, LuniverseRol
         bool _processed;
     }
 
-    // string mapping to Peg.
+    // transactionHash mapping to Peg.
     mapping (bytes32 => Peg) private _pegged;
 
     function isPegged(bytes32 txnHash) public view returns (bool pegged) {
@@ -61,12 +61,14 @@ contract Peggable is Initializable, BeforeTransferERC20, GluwaRole, LuniverseRol
     }
 
     function gluwaApprove(bytes32 txnHash) public onlyGluwa {
+        require(_pegged[txnHash]._sender != address(0), "Peggable: the txnHash is not pegged");
         require(!_pegged[txnHash]._gluwaApproved, "Peggable: the txnHash is already Gluwa Approved");
 
         _pegged[txnHash]._gluwaApproved = true;
     }
 
     function luniverseApprove(bytes32 txnHash) public onlyLuniverse {
+        require(_pegged[txnHash]._sender != address(0), "Peggable: the txnHash is not pegged");
         require(!_pegged[txnHash]._luniverseApproved, "Peggable: the txnHash is already Luniverse Approved");
 
         _pegged[txnHash]._luniverseApproved = true;
@@ -81,6 +83,7 @@ contract Peggable is Initializable, BeforeTransferERC20, GluwaRole, LuniverseRol
      * - the caller must have the Gluwa role or the Luniverse role.
      */
     function mint(bytes32 txnHash) public returns (bool) {
+        require(_pegged[txnHash]._sender != address(0), "Peggable: the txnHash is not pegged");
         require(isGluwa(_msgSender()) || isLuniverse(_msgSender()),
             "Peggable: caller does not have the Gluwa role or the Luniverse role");
 
@@ -95,6 +98,7 @@ contract Peggable is Initializable, BeforeTransferERC20, GluwaRole, LuniverseRol
     }
 
     function _processPeg(bytes32 txnHash) internal {
+        require(_pegged[txnHash]._sender != address(0), "Peggable: the txnHash is not pegged");
         require(_pegged[txnHash]._gluwaApproved, "Peggable: the txnHash is not Gluwa Approved");
         require(_pegged[txnHash]._luniverseApproved, "Peggable: the txnHash is not Luniverse Approved");
         require(!_pegged[txnHash]._processed, "Peggable: the txnHash is already processed");

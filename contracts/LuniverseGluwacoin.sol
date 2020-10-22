@@ -18,7 +18,8 @@ import "./roles/LuniverseRole.sol";
  * At construction, the deployer of the contract is the only minter.
  */
 contract LuniverseGluwacoin is Initializable, BeforeTransferERC20, GluwaRole, LuniverseRole, Burnable, Peggable, Reservable, ETHlessTransfer {
-    function initialize() public initializer {
+    function initialize(string memory name, string memory symbol, uint8 decimals) public initializer {
+        BeforeTransferERC20.initialize(name, symbol, decimals);
         GluwaRole.initialize(_msgSender());
         LuniverseRole.initialize(_msgSender());
     }

@@ -2,15 +2,9 @@
 
 ### Luniverse Gluwacoin
 
-Gluwacoin for [Luniverse](https://luniverse.io/)
+Implementation of Sidechain Gluwacoin for [Luniverse](https://luniverse.io/)
 
-Read [Controlled Gluwacoin](Luniverse%20Gluwacoin.md) for details.
-
-### ERC-20 Wrapper Gluwacoin
-
-Gluwacoin backed by another [ERC-20](https://eips.ethereum.org/EIPS/eip-20) token
-
-Read [ERC-20 Wrapper Gluwacoin](ERC-20%20Wrapper%20Gluwacoin.md) for details.
+Read [Sidechain Gluwacoin](Sidechain%20Gluwacoin.md) for details.
 
 ## Setup
 
