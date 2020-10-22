@@ -375,71 +375,6 @@ describe('LuniverseGluwacoin_LuniverseRole', function () {
     });
 });
 
-describe('LuniverseGluwacoin_Burn', function () {
-    const [ deployer, other, another, pegSender ] = accounts;
-    const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
-
-    const amount = new BN('5000');
-    const fee = new BN('1');
-
-    const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
-    const pegAmount = new BN('1000');
-
-    beforeEach(async function () {
-        // Deploy a new LuniverseGluwacoin contract for each test
-        this.token = await LuniverseGluwacoin.new({ from : deployer });
-    });
-    /* Burnable related
-    */
-    // burn related
-    it('can burn less than balance', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-
-        await this.token.mint(pegTxnHash, { from : deployer });
-        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
-        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
-
-        const burnAmount = new BN('100');
-
-        await this.token.burn(burnAmount, { from : pegSender });
-        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount.sub(burnAmount));
-        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount.sub(burnAmount));
-    });
-
-    it('can burn full balance', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-
-        await this.token.mint(pegTxnHash, { from : deployer });
-        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
-        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
-
-        await this.token.burn(pegAmount, { from : pegSender });
-        expect(await this.token.totalSupply()).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal('0');
-    });
-
-    it('cannot burn more than balance', async function () {
-        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-
-        await this.token.mint(pegTxnHash, { from : deployer });
-        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
-        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
-
-        const burnAmount = new BN('10000');
-
-        await expectRevert(
-            this.token.burn(burnAmount, { from : pegSender }),
-            'Reservable: transfer amount exceeds unreserved balance'
-        );
-    });
-});
-
 describe('LuniverseGluwacoin_Peggable', function () {
     const [ deployer, other, pegSender ] = accounts;
 
@@ -633,6 +568,7 @@ describe('LuniverseGluwacoin_Mint', function () {
     const [ deployer, other, pegSender ] = accounts;
 
     const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
+    const notPegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8621';
     const pegAmount = new BN('1000');
 
     beforeEach(async function () {
@@ -641,7 +577,7 @@ describe('LuniverseGluwacoin_Mint', function () {
     });
 
     // mint related
-    it('Gluwa can mint', async function () {
+    it('Gluwa/Luniverse can mint', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
         await this.token.gluwaApprove(pegTxnHash, { from : deployer });
         await this.token.luniverseApprove(pegTxnHash, { from : deployer });
@@ -653,6 +589,15 @@ describe('LuniverseGluwacoin_Mint', function () {
 
         expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
         expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
+    });
+
+    it('Gluwa/Luniverse mint emits a Transfer event', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        var receipt = await this.token.mint(pegTxnHash, { from : deployer });
+        expectEvent(receipt, 'Transfer', { from: ZERO_ADDRESS, to: pegSender, value: pegAmount });
     });
 
     it('newly-added Gluwa can mint', async function () {
@@ -698,7 +643,14 @@ describe('LuniverseGluwacoin_Mint', function () {
         );
     });
 
-    it('Gluwa cannot mint not gluwaApproved peg', async function () {
+    it('Gluwa cannot mint with random 32bytes', async function () {
+        await expectRevert(
+            this.token.mint(notPegTxnHash, { from : deployer }),
+            'Peggable: the txnHash is not Gluwa Approved'
+        );
+    });
+
+    it('Gluwa cannot mint without gluwaApproved peg', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
         await this.token.luniverseApprove(pegTxnHash, { from : deployer });
 
@@ -708,12 +660,48 @@ describe('LuniverseGluwacoin_Mint', function () {
         );
     });
 
-    it('Gluwa cannot mint not luniverseApproved peg', async function () {
+    it('Gluwa cannot mint without luniverseApproved peg', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
         await this.token.gluwaApprove(pegTxnHash, { from : deployer });
 
         await expectRevert(
             this.token.mint(pegTxnHash, { from : deployer }),
+            'Peggable: the txnHash is not Luniverse Approved'
+        );
+    });
+
+    it('newly-added Gluwa cannot mint already processed', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await this.token.mint(pegTxnHash, { from : deployer });
+
+        await this.token.addGluwa(other, { from : deployer });
+        await expectRevert(
+            this.token.mint(pegTxnHash, { from : other }),
+            'Peggable: the txnHash is already processed'
+        );
+    });
+
+    it('newly-added Gluwa cannot mint not gluwaApproved peg', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await this.token.addGluwa(other, { from : deployer });
+        await expectRevert(
+            this.token.mint(pegTxnHash, { from : other }),
+            'Peggable: the txnHash is not Gluwa Approved'
+        );
+    });
+
+    it('newly-added Gluwa cannot mint not luniverseApproved peg', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+
+        await this.token.addGluwa(other, { from : deployer });
+        await expectRevert(
+            this.token.mint(pegTxnHash, { from : other }),
             'Peggable: the txnHash is not Luniverse Approved'
         );
     });
@@ -752,6 +740,86 @@ describe('LuniverseGluwacoin_Mint', function () {
             this.token.mint(pegTxnHash, { from : other }),
             'Peggable: the txnHash is not Luniverse Approved'
         );
+    });
+});
+
+describe('LuniverseGluwacoin_Burn', function () {
+    const [ deployer, other, another, pegSender ] = accounts;
+    const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
+
+    const amount = new BN('5000');
+    const fee = new BN('1');
+
+    const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
+    const pegAmount = new BN('1000');
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new({ from : deployer });
+    });
+    /* Burnable related
+    */
+    // burn related
+    it('can burn less than balance', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await this.token.mint(pegTxnHash, { from : deployer });
+        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
+
+        const burnAmount = new BN('100');
+
+        await this.token.burn(burnAmount, { from : pegSender });
+        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount.sub(burnAmount));
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount.sub(burnAmount));
+    });
+
+    it('can burn full balance', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await this.token.mint(pegTxnHash, { from : deployer });
+        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
+
+        await this.token.burn(pegAmount, { from : pegSender });
+        expect(await this.token.totalSupply()).to.be.bignumber.equal('0');
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal('0');
+    });
+
+    it('cannot burn more than balance', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await this.token.mint(pegTxnHash, { from : deployer });
+        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
+
+        const burnAmount = new BN('10000');
+
+        await expectRevert(
+            this.token.burn(burnAmount, { from : pegSender }),
+            'Reservable: transfer amount exceeds unreserved balance'
+        );
+    });
+
+    it('burn emits a Transfer event', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await this.token.mint(pegTxnHash, { from : deployer });
+        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
+
+        const burnAmount = new BN('100');
+        const receipt = await this.token.burn(burnAmount, { from: pegSender });
+
+        expectEvent(receipt, 'Transfer', { from: pegSender, to: ZERO_ADDRESS, value: burnAmount });
     });
 });
 
