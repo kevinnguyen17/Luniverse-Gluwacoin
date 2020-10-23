@@ -614,16 +614,18 @@ describe('LuniverseGluwacoin_Mint', function () {
     // mint related
     it('Gluwa/Luniverse can mint', async function () {
         await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal('0');
+
         await this.token.gluwaApprove(pegTxnHash, { from : deployer });
         await this.token.luniverseApprove(pegTxnHash, { from : deployer });
 
         await this.token.mint(pegTxnHash, { from : deployer });
+        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
 
         var peg = await this.token.getPeg(pegTxnHash, { from : deployer });
         expect(peg.processed);
-
-        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
-        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
     });
 
     it('Gluwa/Luniverse mint emits a Transfer event', async function () {
@@ -633,6 +635,15 @@ describe('LuniverseGluwacoin_Mint', function () {
 
         var receipt = await this.token.mint(pegTxnHash, { from : deployer });
         expectEvent(receipt, 'Transfer', { from: ZERO_ADDRESS, to: pegSender, value: pegAmount });
+    });
+
+    it('Gluwa/Luniverse mint emits a Mint event', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        var receipt = await this.token.mint(pegTxnHash, { from : deployer });
+        expectEvent(receipt, 'Mint', { _mintTo: pegSender, _value: pegAmount });
     });
 
     it('newly-added Gluwa can mint', async function () {
@@ -859,6 +870,21 @@ describe('LuniverseGluwacoin_Burn', function () {
         const receipt = await this.token.burn(burnAmount, { from: pegSender });
 
         expectEvent(receipt, 'Transfer', { from: pegSender, to: ZERO_ADDRESS, value: burnAmount });
+    });
+
+    it('burn emits a Burnt event', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await this.token.mint(pegTxnHash, { from : deployer });
+        expect(await this.token.totalSupply()).to.be.bignumber.equal(pegAmount);
+        expect(await this.token.balanceOf(pegSender)).to.be.bignumber.equal(pegAmount);
+
+        const burnAmount = new BN('100');
+        const receipt = await this.token.burn(burnAmount, { from: pegSender });
+
+        expectEvent(receipt, 'Burnt', { _burnFrom: pegSender, _value: burnAmount });
     });
 });
 
