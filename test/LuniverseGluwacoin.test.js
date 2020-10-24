@@ -1059,13 +1059,15 @@ describe('LuniverseGluwacoin_Reservable', function () {
     });
 
     it('cannot reserve if nonce is already used', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
+        var mintAmount = amount.add(amount);
+
+        await this.token.peg(pegTxnHash, mintAmount, other, { from : deployer });
         await this.token.gluwaApprove(pegTxnHash, { from : deployer });
         await this.token.luniverseApprove(pegTxnHash, { from : deployer });
         await this.token.mint(pegTxnHash, { from : deployer });
 
         expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(mintAmount);
 
         var executor = deployer;
         var reserve_amount = amount.sub(fee);
@@ -1080,7 +1082,7 @@ describe('LuniverseGluwacoin_Reservable', function () {
 
         await expectRevert(
             this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer }),
-            'ERC20Reservable: the sender used the nonce already'
+            'Reservable: the sender used the nonce already'
         );
     });
 
