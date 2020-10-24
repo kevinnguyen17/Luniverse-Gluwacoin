@@ -1028,6 +1028,8 @@ describe('LuniverseGluwacoin_Reservable', function () {
 
         signature = sign.sign(this.token.address, other, other_privateKey, another, send_amount, fee, nonce);
 
+        nonce = Date.now();
+
         await expectRevert(
             this.token.reserve(other, another, executor, send_amount, fee, nonce, expiryBlockNum, signature, { from: deployer }),
             'Reservable: insufficient unreserved balance'
