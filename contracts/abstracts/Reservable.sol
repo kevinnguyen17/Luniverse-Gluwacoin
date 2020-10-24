@@ -58,8 +58,9 @@ contract Reservable is Initializable, BeforeTransferERC20 {
 
     function reserve(address sender, address recipient, address executor, uint256 amount, uint256 fee, uint256 nonce,
         uint256 expiryBlockNum, bytes memory sig) public returns (bool success) {
-        require(expiryBlockNum > block.number, "Reservable: invalid block expiry number");
         require(executor != address(0), "Reservable: cannot execute from zero address");
+        require(_reserved[sender][nonce]._expiryBlockNum == 0, "Reservable: the sender used the nonce already");
+        require(expiryBlockNum > block.number, "Reservable: invalid block expiry number");
 
         uint256 total = amount.add(fee);
         require(_unreservedBalance(sender) >= total, "Reservable: insufficient unreserved balance");
@@ -77,6 +78,7 @@ contract Reservable is Initializable, BeforeTransferERC20 {
     function execute(address sender, uint256 nonce) public returns (bool success) {
         Reservation storage reservation = _reserved[sender][nonce];
 
+        require(reservation._expiryBlockNum != 0, "Reservable: reservation does not exist");
         require(reservation._executor == _msgSender() || sender == _msgSender() ,
             "Reservable: this address is not authorized to execute this reservation");
         require(reservation._expiryBlockNum > block.number,
@@ -103,6 +105,7 @@ contract Reservable is Initializable, BeforeTransferERC20 {
         Reservation storage reservation = _reserved[sender][nonce];
         address executor = reservation._executor;
 
+        require(reservation._expiryBlockNum != 0, "Reservable: reservation does not exist");
         require(_msgSender() == sender || _msgSender() == executor,
             "Reservable: only the sender or the executor can reclaim the reservation back to the sender");
         require(reservation._expiryBlockNum <= block.number || _msgSender() == executor,

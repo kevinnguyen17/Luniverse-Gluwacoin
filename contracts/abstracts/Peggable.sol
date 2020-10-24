@@ -31,6 +31,8 @@ contract Peggable is Initializable, BeforeTransferERC20, GluwaRole, LuniverseRol
     // transactionHash mapping to Peg.
     mapping (bytes32 => Peg) private _pegged;
 
+    event Mint(address indexed _mintTo, uint256 _value);
+
     function isPegged(bytes32 txnHash) public view returns (bool pegged) {
         if (_pegged[txnHash]._sender != address(0)) {
             return true;
@@ -91,6 +93,8 @@ contract Peggable is Initializable, BeforeTransferERC20, GluwaRole, LuniverseRol
 
         address account = _pegged[txnHash]._sender;
         uint256 amount = _pegged[txnHash]._amount;
+
+        emit Mint(account, amount);
 
         _mint(account, amount);
 
