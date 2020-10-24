@@ -105,6 +105,7 @@ contract Reservable is Initializable, BeforeTransferERC20 {
         Reservation storage reservation = _reserved[sender][nonce];
         address executor = reservation._executor;
 
+        require(reservation._expiryBlockNum != 0, "Reservable: reservation does not exist");
         require(_msgSender() == sender || _msgSender() == executor,
             "Reservable: only the sender or the executor can reclaim the reservation back to the sender");
         require(reservation._expiryBlockNum <= block.number || _msgSender() == executor,
