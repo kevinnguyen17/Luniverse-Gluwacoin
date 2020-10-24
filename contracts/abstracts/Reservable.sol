@@ -78,6 +78,7 @@ contract Reservable is Initializable, BeforeTransferERC20 {
     function execute(address sender, uint256 nonce) public returns (bool success) {
         Reservation storage reservation = _reserved[sender][nonce];
 
+        require(reservation._expiryBlockNum != 0, "Reservable: reservation does not exist");
         require(reservation._executor == _msgSender() || sender == _msgSender() ,
             "Reservable: this address is not authorized to execute this reservation");
         require(reservation._expiryBlockNum > block.number,
