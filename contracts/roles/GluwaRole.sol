@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.5.0;
 
-import "@openzeppelin/upgrades/contracts/Initializable.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/access/Roles.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/GSN/Context.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/access/Roles.sol";
+import "@openzeppelin/contracts/GSN/Context.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
-contract GluwaRole is Initializable, Context {
+contract GluwaRole is Context {
     using Address for address;
     using Roles for Roles.Role;
 
@@ -16,7 +15,7 @@ contract GluwaRole is Initializable, Context {
 
     Roles.Role private _Gluwas;
 
-    function initialize(address sender) public initializer {
+    constructor(address sender) public {
         if (!isGluwa(sender)) {
             _addGluwa(sender);
         }
@@ -52,6 +51,4 @@ contract GluwaRole is Initializable, Context {
         _Gluwas.remove(account);
         emit GluwaRemoved(account);
     }
-
-    uint256[50] private ______gap;
 }

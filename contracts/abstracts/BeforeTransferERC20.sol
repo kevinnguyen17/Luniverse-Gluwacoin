@@ -1,16 +1,15 @@
 pragma solidity ^0.5.0;
 
-import "@openzeppelin/upgrades/contracts/Initializable.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/GSN/Context.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/GSN/Context.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 
 /**
  * @dev @openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20.sol with `_beforeTransfer`
  *
  * Changes made to `_transfer`, `_mint`, and `_burn` to add `_beforeTransfer`.
  */
-contract BeforeTransferERC20 is Initializable, Context, IERC20 {
+contract BeforeTransferERC20 is Context, IERC20 {
     using SafeMath for uint256;
 
     mapping (address => uint256) private _balances;
@@ -23,7 +22,12 @@ contract BeforeTransferERC20 is Initializable, Context, IERC20 {
     string private _symbol;
     uint8 private _decimals;
 
-    function initialize(string memory name, string memory symbol, uint8 decimals) public {
+    /**
+     * @dev Sets the values for `name`, `symbol`, and `decimals`. All three of
+     * these values are immutable: they can only be set once during
+     * construction.
+     */
+    constructor (string memory name, string memory symbol, uint8 decimals) public {
         _name = name;
         _symbol = symbol;
         _decimals = decimals;
@@ -274,6 +278,4 @@ contract BeforeTransferERC20 is Initializable, Context, IERC20 {
      * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
      */
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal { }
-
-    uint256[50] private ______gap;
 }

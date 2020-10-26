@@ -5,8 +5,7 @@
   "main": "index.js",
   "dependencies": {
     "@openzeppelin/cli": "^2.8.2",
-    "@openzeppelin/contracts": "^2.5.1",
-    "@openzeppelin/contracts-ethereum-package": "^2.5.0"
+    "@openzeppelin/contracts": "^2.5.1"
   },
   "devDependencies": {
     "@openzeppelin/test-environment": "^0.1.5",

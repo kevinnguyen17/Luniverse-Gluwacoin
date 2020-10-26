@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.5.0;
 
-import "@openzeppelin/upgrades/contracts/Initializable.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/GSN/Context.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/GSN/Context.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
 import "./BeforeTransferERC20.sol";
 import "../Validate.sol";
@@ -13,7 +12,7 @@ import "../roles/GluwaRole.sol";
  * @dev Extension of {ERC20} that allows users to send ETHless transfer by hiring a transaction relayer to pay the
  * gas fee for them. The relayer gets paid in this ERC20 token for `fee`.
  */
-contract ETHlessTransfer is Initializable, Context, BeforeTransferERC20, GluwaRole {
+contract ETHlessTransfer is Context, BeforeTransferERC20, GluwaRole {
     using Address for address;
 
     mapping (address => mapping (uint256 => bool)) private _usedNonces;
@@ -58,6 +57,4 @@ contract ETHlessTransfer is Initializable, Context, BeforeTransferERC20, GluwaRo
     function _collect(address sender, uint256 amount) internal {
         _transfer(sender, _msgSender(), amount);
     }
-
-    uint256[50] private __gap;
 }
