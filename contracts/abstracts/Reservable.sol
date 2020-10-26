@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.5.0;
 
-import "@openzeppelin/upgrades/contracts/Initializable.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
 
 import "./BeforeTransferERC20.sol";
 import "../Validate.sol";
@@ -13,7 +12,7 @@ import "../Validate.sol";
  * a `fee`. If the `reserve` gets expired without getting executed, the `sender` or the `executor` can `reclaim`
  * the fund back to the `sender`.
  */
-contract Reservable is Initializable, BeforeTransferERC20 {
+contract Reservable is BeforeTransferERC20 {
     using Address for address;
 
     enum ReservationStatus {
@@ -130,6 +129,4 @@ contract Reservable is Initializable, BeforeTransferERC20 {
 
         super._beforeTokenTransfer(from, to, amount);
     }
-
-    uint256[50] private __gap;
 }

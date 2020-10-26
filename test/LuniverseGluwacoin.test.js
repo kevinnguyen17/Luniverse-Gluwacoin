@@ -7,7 +7,7 @@ const { BN, constants, expectEvent, expectRevert, time } = require('@openzeppeli
 const { ZERO_ADDRESS, MAX_UINT256 } = constants;
 
 // Load compiled artifacts
-const LuniverseGluwacoin = contract.fromArtifact('LuniverseGluwacoinMock');
+const LuniverseGluwacoin = contract.fromArtifact('LuniverseGluwacoin');
 
 var sign = require('./signature');
 
