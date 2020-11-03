@@ -2,6 +2,7 @@
 pragma solidity ^0.5.0;
 
 import "@openzeppelin/contracts/GSN/Context.sol";
+import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
 import "./BeforeTransferERC20.sol";
@@ -14,6 +15,7 @@ import "../roles/GluwaRole.sol";
  */
 contract ETHlessTransfer is Context, BeforeTransferERC20, GluwaRole {
     using Address for address;
+    using ECDSA for bytes32;
 
     mapping (address => mapping (uint256 => bool)) private _usedNonces;
 
@@ -35,7 +37,8 @@ contract ETHlessTransfer is Context, BeforeTransferERC20, GluwaRole {
     public onlyGluwa returns (bool success) {
         _useNonce(sender, nonce);
 
-        Validate.validateSignature(address(this), sender, recipient, amount, fee, nonce, sig);
+        bytes32 hash = keccak256(abi.encodePacked(address(this), sender, recipient, amount, fee, nonce));
+        Validate.validateSignature(hash, sender, sig);
 
         _collect(sender, fee);
         _transfer(sender, recipient, amount);
