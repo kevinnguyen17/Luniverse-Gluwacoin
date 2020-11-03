@@ -2,6 +2,8 @@
 pragma solidity ^0.5.0;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
 import "./BeforeTransferERC20.sol";
 import "../Validate.sol";
@@ -14,6 +16,7 @@ import "../Validate.sol";
  */
 contract Reservable is BeforeTransferERC20 {
     using Address for address;
+    using ECDSA for bytes32;
 
     enum ReservationStatus {
         Active,
@@ -65,7 +68,8 @@ contract Reservable is BeforeTransferERC20 {
         require(_unreservedBalance(sender) >= total, "Reservable: insufficient unreserved balance");
         require(total > 0, "Reservable: invalid reserve amount");
 
-        Validate.validateSignature(address(this), sender, recipient, amount, fee, nonce, sig);
+        bytes32 hash = keccak256(abi.encodePacked(address(this), sender, recipient, executor, amount, fee, nonce, expiryBlockNum));
+        Validate.validateSignature(hash, sender, sig);
 
         _reserved[sender][nonce] = Reservation(amount, fee, recipient, executor, expiryBlockNum,
             ReservationStatus.Active);

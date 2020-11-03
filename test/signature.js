@@ -16,5 +16,21 @@ module.exports = {
         var signature = obj.signature;
 
         return signature;
+    },
+    signReserve: function (contractAddress, sourceAddress, sourcePrivateKey, targetAddress, executorAddress, amount, fee, nonce, expiryBlockNum) {
+        var hash = web3.utils.soliditySha3({ t: 'address', v: contractAddress },
+            { t: 'address', v: sourceAddress },
+            { t: 'address', v: targetAddress },
+            { t: 'address', v: executorAddress },
+            { t: 'uint256', v: amount },
+            { t: 'uint256', v: fee },
+            { t: 'uint256', v: nonce },
+            { t: 'uint256', v: expiryBlockNum });
+
+        var obj = web3.eth.accounts.sign(hash , sourcePrivateKey);
+
+        var signature = obj.signature;
+
+        return signature;
     }
 };
