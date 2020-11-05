@@ -1,4 +1,5 @@
 // Load dependencies
+const crypto = require('crypto');
 const { expect } = require('chai');
 const { accounts, privateKeys, contract, web3 } = require('@openzeppelin/test-environment');
 
@@ -888,7 +889,7 @@ describe('LuniverseGluwacoin_Burn', function () {
     });
 });
 
-describe('LuniverseGluwacoin_Reservable', function () {
+describe('LuniverseGluwacoin_Reservable_Reserve', function () {
     const [ deployer, other, another ] = accounts;
     const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
 
@@ -899,25 +900,45 @@ describe('LuniverseGluwacoin_Reservable', function () {
     const amount = new BN('5000');
     const fee = new BN('1');
 
-    const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
+    const pegTxnHash = '0x' + crypto.randomBytes(64).toString('hex').substring(64);
     const pegAmount = new BN('1000');
 
     beforeEach(async function () {
         // Deploy a new LuniverseGluwacoin contract for each test
         this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
-    });
-
-    /* Reservable related
-    */
-    it('Gluwa can reserve', async function () {
+        // peg and mint {amount} to {other}
         await this.token.peg(pegTxnHash, amount, other, { from : deployer });
         await this.token.gluwaApprove(pegTxnHash, { from : deployer });
         await this.token.luniverseApprove(pegTxnHash, { from : deployer });
         await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
+        // {other}'s starting balance is {amount}
         expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount);
+        // {deployer} starting balance is 0
+        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
+    });
 
+    /* reserve() related
+    */
+    it('can call reserve() if amount + fee < full balance', async function () {
+        var executor = deployer;
+        var leftoverBalance = new BN('1');
+        var reserve_amount = amount.sub(fee).sub(leftoverBalance);
+        var reserve_fee = fee;
+        var latestBlock = await time.latestBlock();
+        var expiryBlockNum = latestBlock.add(new BN('100'));
+        var nonce = Date.now();
+
+        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
+
+        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: another });
+
+        // {other}'s balance is dropped to 0
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(leftoverBalance);
+        // {other}'s reserved balance equals {amount}
+        expect(await this.token.reservedOf(other)).to.be.bignumber.equal(reserve_amount.add(reserve_fee));
+    });
+
+    it('can call reserve() if amount + fee == full balance', async function () {
         var executor = deployer;
         var reserve_amount = amount.sub(fee);
         var reserve_fee = fee;
@@ -927,20 +948,15 @@ describe('LuniverseGluwacoin_Reservable', function () {
 
         var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
 
-        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
+        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: another });
 
-        expect(await this.token.reservedBalanceOf(other)).to.be.bignumber.equal(amount.toString());
+        // {other}'s balance is dropped to 0
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(new BN('0'));
+        // {other}'s reserved balance equals {amount}
+        expect(await this.token.reservedOf(other)).to.be.bignumber.equal(amount);
     });
 
-    it('Gluwa cannot reserve with outdated expiryBlockNum', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
+    it('cannot call reserve() with outdated expiryBlockNum', async function () {
         var executor = deployer;
         var reserve_amount = amount.sub(fee);
         var reserve_fee = fee;
@@ -951,47 +967,31 @@ describe('LuniverseGluwacoin_Reservable', function () {
         var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
 
         await expectRevert(
-            this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer }),
+            this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: another }),
             'Reservable: invalid block expiry number'
         );
     });
 
-    it('Gluwa cannot reserve with zero address as the executor', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
+    it('cannot call reserve() with zero address as the executor', async function () {
         var executor = ZERO_ADDRESS;
         var reserve_amount = amount.sub(fee);
-        var reserve_fee = amount.sub(fee);
+        var reserve_fee = fee;
         var latestBlock = await time.latestBlock();
-        var expiryBlockNum = latestBlock.add(new BN('100'));
+        var expiryBlockNum = latestBlock;
         var nonce = Date.now();
 
         var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
 
         await expectRevert(
-            this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer }),
+            this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: another }),
             'Reservable: cannot execute from zero address'
         );
     });
 
-    it('Gluwa cannot reserve if amount + fee > balance', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
+    it('cannot call reserve() if amount + fee > full balance', async function () {
         var executor = deployer;
+        var reserve_amount = amount.sub(fee).add(new BN('1'));
         var reserve_fee = fee;
-        var reserve_amount = amount.sub(reserve_fee).add(new BN('1'));
         var latestBlock = await time.latestBlock();
         var expiryBlockNum = latestBlock.add(new BN('100'));
         var nonce = Date.now();
@@ -999,54 +999,35 @@ describe('LuniverseGluwacoin_Reservable', function () {
         var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
 
         await expectRevert(
-            this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer }),
+            this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: another }),
             'Reservable: insufficient unreserved balance'
         );
     });
 
-    it('Gluwa cannot reserve if amount + fee + reserved > balance', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
+    it('cannot call reserve() if amount + fee + reserved > full balance', async function () {
         var executor = deployer;
-        var send_amount2 = new BN('10');
-        var send_amount = amount.sub(fee).sub(send_amount2);
+        var reserve_amount = amount.sub(fee);
+        var reserve_fee = fee;
         var latestBlock = await time.latestBlock();
         var expiryBlockNum = latestBlock.add(new BN('100'));
         var nonce = Date.now();
 
-        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, send_amount, fee, nonce, expiryBlockNum);
+        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
 
-        await this.token.reserve(other, another, executor, send_amount, fee, nonce, expiryBlockNum, signature, { from: deployer });
+        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: another });
 
-        send_amount = send_amount2;
-
-        signature = sign.sign(this.token.address, other, other_privateKey, another, send_amount, fee, nonce);
-
-        nonce = Date.now();
+        var newNonce = Date.now();
+        var newSignature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, newNonce, expiryBlockNum);
 
         await expectRevert(
-            this.token.reserve(other, another, executor, send_amount, fee, nonce, expiryBlockNum, signature, { from: deployer }),
+            this.token.reserve(other, another, executor, reserve_amount, reserve_fee, newNonce, expiryBlockNum, signature, { from: another }),
             'Reservable: insufficient unreserved balance'
         );
     });
 
-    it('Gluwa cannot reserve if not amount + fee = 0', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
+    it('cannot call reserve() if amount + fee = 0', async function () {
         var executor = deployer;
-        var reserve_amount = new BN('0');
+        var reserve_amount = new BN('0')
         var reserve_fee = new BN('0');
         var latestBlock = await time.latestBlock();
         var expiryBlockNum = latestBlock.add(new BN('100'));
@@ -1055,21 +1036,25 @@ describe('LuniverseGluwacoin_Reservable', function () {
         var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
 
         await expectRevert(
-            this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer }),
+            this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: another }),
             'Reservable: invalid reserve amount'
         );
     });
 
-    it('cannot reserve if nonce is already used', async function () {
-        var mintAmount = amount.add(amount);
-
-        await this.token.peg(pegTxnHash, mintAmount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(mintAmount);
+    it('cannot call reserve() if nonce is already used', async function () {
+        // mint another {amount} to {other}
+        // generate a random txnHash that is different from pegTxnHash
+        var newPegTxnHash = pegTxnHash;
+        while (newPegTxnHash == pegTxnHash) {
+            newPegTxnHash = '0x' + crypto.randomBytes(64).toString('hex').substring(64);
+        }
+        // peg and mint {amount} to {other}
+        await this.token.peg(newPegTxnHash, amount, other, { from : deployer });
+        await this.token.gluwaApprove(newPegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(newPegTxnHash, { from : deployer });
+        await this.token.mint(newPegTxnHash, { from : deployer });
+        // {other}'s starting balance is {amount} * 2
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.mul(new BN('2')));
 
         var executor = deployer;
         var reserve_amount = amount.sub(fee);
@@ -1080,58 +1065,43 @@ describe('LuniverseGluwacoin_Reservable', function () {
 
         var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
 
-        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
+        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: another });
 
         await expectRevert(
-            this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer }),
+            this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: another }),
             'Reservable: the sender used the nonce already'
         );
     });
 
-    it('cannot reserve if signature is invalid', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
+    it('cannot call reserve() if signature is invalid', async function () {
         var executor = deployer;
         var reserve_amount = amount.sub(fee);
         var reserve_fee = fee;
-        var dummy_amount = amount.sub(fee).sub(fee); 
         var latestBlock = await time.latestBlock();
         var expiryBlockNum = latestBlock.add(new BN('100'));
         var nonce = Date.now();
 
-        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, dummy_amount, reserve_fee, nonce, expiryBlockNum);
+        var signature = sign.signReserve(this.token.address, other, another_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
 
         await expectRevert(
-            this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer }),
+            this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: another }),
             'Validate: invalid signature'
         );
     });
 
-    it('getReservation works', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
+    /* getReservation() related
+    */
+    it('getReservation() returns newly created reservation correctly', async function () {
         var executor = deployer;
+        var reserve_amount = amount.sub(fee);
         var reserve_fee = fee;
-        var reserve_amount = amount.sub(reserve_fee);
         var latestBlock = await time.latestBlock();
         var expiryBlockNum = latestBlock.add(new BN('100'));
         var nonce = Date.now();
 
         var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
 
-        this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
+        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: another });
 
         var reserve = await this.token.getReservation(other, nonce);
 
@@ -1141,72 +1111,109 @@ describe('LuniverseGluwacoin_Reservable', function () {
         expect(reserve.executor).to.equal(executor);
         expect(reserve.expiryBlockNum).to.be.bignumber.equal(expiryBlockNum);
     });
+});
 
-    it('executor can execute', async function () {
+describe('LuniverseGluwacoin_Reservable_Execute', function () {
+    const [ deployer, other, another ] = accounts;
+    const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
+
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
+    const amount = new BN('5000');
+    const fee = new BN('1');
+
+    const pegTxnHash = '0x' + crypto.randomBytes(64).toString('hex').substring(64);
+    const pegAmount = new BN('1000');
+
+    const sender = other;
+    const executor = deployer;
+    const reserve_amount = amount.sub(fee);
+    const reserve_fee = fee;
+    const nonce = Date.now();
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
+        // peg and mint {amount} to {other}
         await this.token.peg(pegTxnHash, amount, other, { from : deployer });
         await this.token.gluwaApprove(pegTxnHash, { from : deployer });
         await this.token.luniverseApprove(pegTxnHash, { from : deployer });
         await this.token.mint(pegTxnHash, { from : deployer });
-
+        // {other}'s starting balance is {amount}
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount);
+        // {executor} starting balance is 0
         expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
-        var executor = deployer;
-        var reserve_amount = amount.sub(fee);
-        var reserve_fee = fee;
+        // create a reserve
         var latestBlock = await time.latestBlock();
-        var expiryBlockNum = latestBlock.add(new BN('100'));
-        var nonce = Date.now();
-
-        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
-
-        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
-
-        await this.token.execute(other, nonce, { from: deployer });
+        this.expiryBlockNum = latestBlock.add(new BN('100'));
+        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, this.expiryBlockNum);
+        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, this.expiryBlockNum, signature, { from: another });
+        // {other}'s balance is dropped to 0
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(new BN('0'));
+        // {other}'s reserved balance equals {amount}
+        expect(await this.token.reservedOf(other)).to.be.bignumber.equal(amount);
     });
 
-    it('sender can execute', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
+    /* execute() related
+    */
+    it('executor can call execute()', async function () {
+        await this.token.execute(other, nonce, { from: executor });
 
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
-        var executor = deployer;
-        var reserve_amount = amount.sub(fee);
-        var reserve_fee = fee;
-        var latestBlock = await time.latestBlock();
-        var expiryBlockNum = latestBlock.add(new BN('100'));
-        var nonce = Date.now();
-
-        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
-
-        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
-
-        await this.token.execute(other, nonce, { from: other });
+        // {other}'s balance stays 0
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(new BN('0'));
+        // {other}'s reserved balance is dropped to 0
+        expect(await this.token.reservedOf(other)).to.be.bignumber.equal(new BN('0'));
+        // {another}'s balance equals {reserve_amount}
+        expect(await this.token.balanceOf(another)).to.be.bignumber.equal(reserve_amount);
+        // {executor}'s balance equals {reserve_fee}
+        expect(await this.token.balanceOf(executor)).to.be.bignumber.equal(reserve_fee);
     });
 
-    it('receiver cannot execute', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
+    it('sender can call execute()', async function () {
+        await this.token.execute(other, nonce, { from: sender });
 
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
+        // {other}'s balance stays 0
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(new BN('0'));
+        // {other}'s reserved balance is dropped to 0
+        expect(await this.token.reservedOf(other)).to.be.bignumber.equal(new BN('0'));
+        // {another}'s balance equals {reserve_amount}
+        expect(await this.token.balanceOf(another)).to.be.bignumber.equal(reserve_amount);
+        // {executor}'s balance equals {reserve_fee}
+        expect(await this.token.balanceOf(executor)).to.be.bignumber.equal(reserve_fee);
+    });
 
-        var executor = deployer;
-        var reserve_amount = amount.sub(fee);
-        var reserve_fee = fee;
-        var latestBlock = await time.latestBlock();
-        var expiryBlockNum = latestBlock.add(new BN('100'));
-        var nonce = Date.now();
+    it('non-executor and non-sender cannot call execute()', async function () {
+        await expectRevert(
+            this.token.execute(other, nonce, { from: another }),
+            'Reservable: this address is not authorized to execute this reservation'
+        );
+    });
 
-        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
+    it('executor cannot call execute() if the reserve is expired', async function () {
+        // expire the reserve
+        await time.advanceBlockTo(this.expiryBlockNum.add(new BN('1')));
 
-        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
+        await expectRevert(
+            this.token.execute(other, nonce, { from: executor }),
+            'Reservable: reservation has expired and cannot be executed'
+        );
+    });
+
+    it('sender cannot call execute() if the reserve is expired', async function () {
+        // expire the reserve
+        await time.advanceBlockTo(this.expiryBlockNum.add(new BN('1')));
+
+        await expectRevert(
+            this.token.execute(other, nonce, { from: sender }),
+            'Reservable: reservation has expired and cannot be executed'
+        );
+    });
+
+    it('non-executor and non-sender cannot call execute() if the reserve is expired', async function () {
+        // expire the reserve
+        await time.advanceBlockTo(this.expiryBlockNum.add(new BN('1')));
 
         await expectRevert(
             this.token.execute(other, nonce, { from: another }),
@@ -1214,216 +1221,231 @@ describe('LuniverseGluwacoin_Reservable', function () {
         );
     });
 
-    it('cannot execute expired reserve', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
-        var executor = deployer;
-        var reserve_amount = amount.sub(fee);
-        var reserve_fee = fee;
-        var latestBlock = await time.latestBlock();
-        var expiryBlockNum = latestBlock.add(new BN('100'));
-        var nonce = Date.now();
-
-        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
-
-        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
-
-        await time.advanceBlockTo(expiryBlockNum.add(new BN('1')));
+    it('executor cannot call execute() if the reserve is already executed by executor', async function () {
+        await this.token.execute(other, nonce, { from: executor });
 
         await expectRevert(
-            this.token.execute(other, nonce, { from: deployer }),
+            this.token.execute(other, nonce, { from: executor }),
+            'Reservable: invalid reservation status to execute'
+        );
+    });
+
+    it('executor cannot call execute() if the reserve is already executed by sender', async function () {
+        await this.token.execute(other, nonce, { from: sender });
+
+        await expectRevert(
+            this.token.execute(other, nonce, { from: executor }),
+            'Reservable: invalid reservation status to execute'
+        );
+    });
+
+    it('sender cannot call execute() if the reserve is already executed by executor', async function () {
+        await this.token.execute(other, nonce, { from: executor });
+
+        await expectRevert(
+            this.token.execute(other, nonce, { from: sender }),
+            'Reservable: invalid reservation status to execute'
+        );
+    });
+
+    it('sender cannot call execute() if the reserve is already executed by sender', async function () {
+        await this.token.execute(other, nonce, { from: sender });
+
+        await expectRevert(
+            this.token.execute(other, nonce, { from: sender }),
+            'Reservable: invalid reservation status to execute'
+        );
+    });
+
+    it('executor cannot call execute() if the reserve is reclaimed by executor', async function () {
+        await this.token.reclaim(other, nonce, { from: executor });
+
+        await expectRevert(
+            this.token.execute(other, nonce, { from: executor }),
+            'Reservable: invalid reservation status to execute'
+        );
+    });
+
+    it('executor cannot call execute() if the reserve is reclaimed by sender', async function () {
+        // expire the reserve
+        await time.advanceBlockTo(this.expiryBlockNum.add(new BN('1')));
+
+        await this.token.reclaim(other, nonce, { from: sender });
+
+        await expectRevert(
+            this.token.execute(other, nonce, { from: sender }),
             'Reservable: reservation has expired and cannot be executed'
         );
     });
 
-    it('cannot execute executed reserve', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
-        var executor = deployer;
-        var reserve_amount = amount.sub(fee);
-        var reserve_fee = fee;
-        var latestBlock = await time.latestBlock();
-        var expiryBlockNum = latestBlock.add(new BN('100'));
-        var nonce = Date.now();
-
-        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
-
-        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
-
-        await this.token.execute(other, nonce, { from: deployer });
+    it('sender cannot call execute() if the reserve is reclaimed by executor', async function () {
+        await this.token.reclaim(other, nonce, { from: executor });
 
         await expectRevert(
-            this.token.execute(other, nonce, { from: deployer }),
+            this.token.execute(other, nonce, { from: sender }),
             'Reservable: invalid reservation status to execute'
         );
     });
 
-    it('cannot execute reclaimed reserve', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
+    it('sender cannot call execute() if the reserve is reclaimed by sender', async function () {
+        // expire the reserve
+        await time.advanceBlockTo(this.expiryBlockNum.add(new BN('1')));
 
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
-        var executor = deployer;
-        var reserve_amount = amount.sub(fee);
-        var reserve_fee = fee;
-        var latestBlock = await time.latestBlock();
-        var expiryBlockNum = latestBlock.add(new BN('100'));
-        var nonce = Date.now();
-
-        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
-
-        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
-
-        await this.token.reclaim(other, nonce, { from: deployer });
+        await this.token.reclaim(other, nonce, { from: sender });
 
         await expectRevert(
-            this.token.execute(other, nonce, { from: deployer }),
-            'Reservable: invalid reservation status to execute'
+            this.token.execute(other, nonce, { from: sender }),
+            'Reservable: reservation has expired and cannot be executed'
         );
     });
 
-    it('cannot execute non existing reserve', async function () {
-        var nonce = Date.now();
+    it('executor cannot call execute() on a non-existing reserve', async function () {
+        // create a new nonce without a reserve
+        var newNonce = nonce;
+        while (newNonce == nonce) {
+            newNonce = Date.now();
+        }
+
         await expectRevert(
-            this.token.execute(other, nonce, { from: deployer }),
+            this.token.execute(other, newNonce, { from: executor }),
             'Reservable: reservation does not exist'
         );
     });
 
-    it('executor can reclaim expired reserve', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
-        var executor = deployer;
-        var reserve_amount = amount.sub(fee);
-        var reserve_fee = fee;
-        var latestBlock = await time.latestBlock();
-        var expiryBlockNum = latestBlock.add(new BN('100'));
-        var nonce = Date.now();
-
-        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
-
-        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
-
-        await time.advanceBlockTo(expiryBlockNum.add(new BN('1')));
-
-        await this.token.reclaim(other, nonce, { from: deployer });
-    });
-
-    it('executor can reclaim unexpired reserve', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
-        var executor = deployer;
-        var reserve_amount = amount.sub(fee);
-        var reserve_fee = fee;
-        var latestBlock = await time.latestBlock();
-        var expiryBlockNum = latestBlock.add(new BN('100'));
-        var nonce = Date.now();
-
-        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
-
-        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
-
-        await this.token.reclaim(other, nonce, { from: deployer });
-    });
-
-    it('sender can reclaim expired reserve', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
-        var executor = deployer;
-        var reserve_amount = amount.sub(fee);
-        var reserve_fee = fee;
-        var latestBlock = await time.latestBlock();
-        var expiryBlockNum = latestBlock.add(new BN('100'));
-        var nonce = Date.now();
-
-        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
-
-        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
-
-        await time.advanceBlockTo(expiryBlockNum.add(new BN('1')));
-
-        await this.token.reclaim(other, nonce, { from: other });
-    });
-
-    it('sender cannot reclaim unexpired reserve', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
-        var executor = deployer;
-        var reserve_amount = amount.sub(fee);
-        var reserve_fee = fee;
-        var latestBlock = await time.latestBlock();
-        var expiryBlockNum = latestBlock.add(new BN('100'));
-        var nonce = Date.now();
-
-        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
-
-        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
+    it('sender cannot call execute() on a non-existing reserve', async function () {
+        // create a new nonce without a reserve
+        var newNonce = nonce;
+        while (newNonce == nonce) {
+            newNonce = Date.now();
+        }
 
         await expectRevert(
-            this.token.reclaim(other, nonce, { from: other }),
+            this.token.execute(other, newNonce, { from: sender }),
+            'Reservable: reservation does not exist'
+        );
+    });
+
+    it('non-executor and non-sender cannot call execute() on a non-existing reserve', async function () {
+        // create a new nonce without a reserve
+        var newNonce = nonce;
+        while (newNonce == nonce) {
+            newNonce = Date.now();
+        }
+
+        await expectRevert(
+            this.token.execute(other, newNonce, { from: another }),
+            'Reservable: reservation does not exist'
+        );
+    });
+});
+
+describe('LuniverseGluwacoin_Reservable_Reclaim', function () {
+    const [ deployer, other, another ] = accounts;
+    const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
+
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
+    const amount = new BN('5000');
+    const fee = new BN('1');
+
+    const pegTxnHash = '0x' + crypto.randomBytes(64).toString('hex').substring(64);
+    const pegAmount = new BN('1000');
+
+    const sender = other;
+    const executor = deployer;
+    const reserve_amount = amount.sub(fee);
+    const reserve_fee = fee;
+    const nonce = Date.now();
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
+        // peg and mint {amount} to {other}
+        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+        await this.token.mint(pegTxnHash, { from : deployer });
+        // {other}'s starting balance is {amount}
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount);
+        // {executor} starting balance is 0
+        expect(await this.token.balanceOf(executor)).to.be.bignumber.equal('0');
+        // create a reserve
+        var latestBlock = await time.latestBlock();
+        this.expiryBlockNum = latestBlock.add(new BN('100'));
+        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, this.expiryBlockNum);
+        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, this.expiryBlockNum, signature, { from: another });
+        // {other}'s balance is dropped to 0
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(new BN('0'));
+        // {other}'s reserved balance equals {amount}
+        expect(await this.token.reservedOf(other)).to.be.bignumber.equal(amount);
+    });
+
+    /* reclaim() related
+    */
+    it('executor can call reclaim() when the reserve is NOT expired', async function () {
+        await this.token.reclaim(other, nonce, { from: executor });
+
+        // {other}'s balance is back to {amount}
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount);
+        // {other}'s reserved balance is dropped to 0
+        expect(await this.token.reservedOf(other)).to.be.bignumber.equal(new BN('0'));
+        // {another}'s balance stays 0
+        expect(await this.token.balanceOf(another)).to.be.bignumber.equal(new BN('0'));
+        // {executor}'s balance stays 0
+        expect(await this.token.balanceOf(executor)).to.be.bignumber.equal(new BN('0'));
+    });
+
+    it('executor can call reclaim() when the reserve is expired', async function () {
+        // expire the reserve
+        await time.advanceBlockTo(this.expiryBlockNum.add(new BN('1')));
+
+        await this.token.reclaim(other, nonce, { from: executor });
+
+        // {other}'s balance is back to {amount}
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount);
+        // {other}'s reserved balance is dropped to 0
+        expect(await this.token.reservedOf(other)).to.be.bignumber.equal(new BN('0'));
+        // {another}'s balance stays 0
+        expect(await this.token.balanceOf(another)).to.be.bignumber.equal(new BN('0'));
+        // {executor}'s balance stays 0
+        expect(await this.token.balanceOf(executor)).to.be.bignumber.equal(new BN('0'));
+    });
+
+    it('sender can call reclaim() when the reserve is expired', async function () {
+        // expire the reserve
+        await time.advanceBlockTo(this.expiryBlockNum.add(new BN('1')));
+
+        await this.token.reclaim(other, nonce, { from: sender });
+
+        // {other}'s balance is back to {amount}
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount);
+        // {other}'s reserved balance is dropped to 0
+        expect(await this.token.reservedOf(other)).to.be.bignumber.equal(new BN('0'));
+        // {another}'s balance stays 0
+        expect(await this.token.balanceOf(another)).to.be.bignumber.equal(new BN('0'));
+        // {executor}'s balance stays 0
+        expect(await this.token.balanceOf(executor)).to.be.bignumber.equal(new BN('0'));
+    });
+
+    it('sender cannot call reclaim() when the reserve is NOT expired', async function () {
+        await expectRevert(
+            this.token.reclaim(other, nonce, { from: sender }),
             'Reservable: reservation has not expired or you are not the executor and cannot be reclaimed'
         );
     });
 
-    it('receiver cannot reclaim unexpired reserve', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
+    it('non-executor and non-sender cannot call reclaim() when the reserve is NOT expired', async function () {
+        await expectRevert(
+            this.token.reclaim(other, nonce, { from: another }),
+            'Reservable: only the sender or the executor can reclaim the reservation back to the sender'
+        );
+    });
 
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
-        var executor = deployer;
-        var reserve_amount = amount.sub(fee);
-        var reserve_fee = fee;
-        var latestBlock = await time.latestBlock();
-        var expiryBlockNum = latestBlock.add(new BN('100'));
-        var nonce = Date.now();
-
-        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
-
-        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
+    it('non-executor and non-sender cannot call reclaim() when the reserve is expired', async function () {
+        // expire the reserve
+        await time.advanceBlockTo(this.expiryBlockNum.add(new BN('1')));
 
         await expectRevert(
             this.token.reclaim(other, nonce, { from: another }),
@@ -1431,119 +1453,83 @@ describe('LuniverseGluwacoin_Reservable', function () {
         );
     });
 
-    it('receiver cannot reclaim expired reserve', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
-        var executor = deployer;
-        var reserve_amount = amount.sub(fee);
-        var reserve_fee = fee;
-        var latestBlock = await time.latestBlock();
-        var expiryBlockNum = latestBlock.add(new BN('100'));
-        var nonce = Date.now();
-
-        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
-
-        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
-
-        await time.advanceBlockTo(expiryBlockNum.add(new BN('1')));
+    it('executor cannot call reclaim() on a non-existing reserve', async function () {
+        // create a new nonce without a reserve
+        var newNonce = nonce;
+        while (newNonce == nonce) {
+            newNonce = Date.now();
+        }
 
         await expectRevert(
-            this.token.reclaim(other, nonce, { from: another }),
-            'Reservable: only the sender or the executor can reclaim the reservation back to the sender'
-        );
-    });
-
-    it('executor cannot reclaim from no reservation', async function () {
-        var nonce = Date.now();
-        await expectRevert(
-            this.token.reclaim(other, nonce, { from: deployer }),
+            this.token.reclaim(other, newNonce, { from: executor }),
             'Reservable: reservation does not exist'
         );
     });
 
-    it('sender cannot reclaim from no reservation', async function () {
-        var nonce = Date.now();
+    it('sender cannot call reclaim() on a non-existing reserve', async function () {
+        // create a new nonce without a reserve
+        var newNonce = nonce;
+        while (newNonce == nonce) {
+            newNonce = Date.now();
+        }
+
         await expectRevert(
-            this.token.reclaim(other, nonce, { from: other }),
+            this.token.reclaim(other, newNonce, { from: sender }),
             'Reservable: reservation does not exist'
         );
     });
 
-    it('receiver cannot reclaim from no reservation', async function () {
-        var nonce = Date.now();
+    it('non-executor and non-sender cannot call reclaim() on a non-existing reserve', async function () {
+        // create a new nonce without a reserve
+        var newNonce = nonce;
+        while (newNonce == nonce) {
+            newNonce = Date.now();
+        }
+
         await expectRevert(
-            this.token.reclaim(other, nonce, { from: another }),
+            this.token.reclaim(other, newNonce, { from: another }),
             'Reservable: reservation does not exist'
         );
     });
+});
 
-    it('reservedBalanceOf accurate after reserve', async function () {
+describe('LuniverseGluwacoin_Reservable_BalanceOf', function () {
+    const [ deployer, other, another ] = accounts;
+    const [ deployer_privateKey, other_privateKey, another_privateKey ] = privateKeys;
+
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
+    const amount = new BN('5000');
+    const fee = new BN('1');
+
+    const pegTxnHash = '0x' + crypto.randomBytes(64).toString('hex').substring(64);
+    const pegAmount = new BN('1000');
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
+        // peg and mint {amount} to {other}
         await this.token.peg(pegTxnHash, amount, other, { from : deployer });
         await this.token.gluwaApprove(pegTxnHash, { from : deployer });
         await this.token.luniverseApprove(pegTxnHash, { from : deployer });
         await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
-        var executor = deployer;
-        var reserve_amount = amount.sub(fee);
-        var reserve_fee = fee;
-        var latestBlock = await time.latestBlock();
-        var expiryBlockNum = latestBlock.add(new BN('100'));
-        var nonce = Date.now();
-
-        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
-
-        expect(await this.token.reservedBalanceOf(other)).to.be.bignumber.equal('0');
-
-        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
-
-        expect(await this.token.reservedBalanceOf(other)).to.be.bignumber.equal(amount.toString());
     });
 
-    it('unreservedBalanceOf accurate after reserve', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
-
+    /* balanceOf() related
+    */
+    it('balanceOf() accurate before reserve()', async function () {
+        // {other}'s starting balance is {amount}
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount);
+        // {deployer} starting balance is 0
         expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
-        var executor = deployer;
-        var reserve_amount = amount.sub(fee);
-        var reserve_fee = fee;
-        var latestBlock = await time.latestBlock();
-        var expiryBlockNum = latestBlock.add(new BN('100'));
-        var nonce = Date.now();
-
-        var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
-
-        expect(await this.token.unreservedBalanceOf(other)).to.be.bignumber.equal(await this.token.balanceOf(other));
-
-        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
-
-        expect(await this.token.unreservedBalanceOf(other)).to.be.bignumber.equal(amount.sub(await this.token.reservedBalanceOf(other)).toString());
     });
 
-    it('reservedBalanceOf accurate after execute', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
+    it('balanceOf() accurate after reserve() when amount + fee < full balance', async function () {
         var executor = deployer;
-        var reserve_amount = amount.sub(fee);
+        var leftoverBalance = new BN('1');
+        var reserve_amount = amount.sub(fee).sub(leftoverBalance);
         var reserve_fee = fee;
         var latestBlock = await time.latestBlock();
         var expiryBlockNum = latestBlock.add(new BN('100'));
@@ -1551,26 +1537,15 @@ describe('LuniverseGluwacoin_Reservable', function () {
 
         var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
 
-        expect(await this.token.reservedBalanceOf(other)).to.be.bignumber.equal('0');
+        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: another });
 
-        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
-
-        expect(await this.token.reservedBalanceOf(other)).to.be.bignumber.equal(amount.toString());
-
-        await this.token.execute(other, nonce, { from: deployer });
-
-        expect(await this.token.reservedBalanceOf(other)).to.be.bignumber.equal('0');
+        // {other}'s balance is dropped to 0
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(leftoverBalance);
+        // {other}'s reserved balance equals {amount}
+        expect(await this.token.reservedOf(other)).to.be.bignumber.equal(reserve_amount.add(reserve_fee));
     });
 
-    it('unreservedBalanceOf accurate after execute', async function () {
-        await this.token.peg(pegTxnHash, amount, other, { from : deployer });
-        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
-        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
-        await this.token.mint(pegTxnHash, { from : deployer });
-
-        expect(await this.token.balanceOf(deployer)).to.be.bignumber.equal('0');
-        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(amount.toString());
-
+    it('balanceOf() accurate after reserve() when amount + fee == full balance', async function () {
         var executor = deployer;
         var reserve_amount = amount.sub(fee);
         var reserve_fee = fee;
@@ -1580,15 +1555,12 @@ describe('LuniverseGluwacoin_Reservable', function () {
 
         var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
 
-        expect(await this.token.unreservedBalanceOf(other)).to.be.bignumber.equal(await this.token.balanceOf(other));
+        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: another });
 
-        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: deployer });
-
-        expect(await this.token.unreservedBalanceOf(other)).to.be.bignumber.equal(amount.sub(await this.token.reservedBalanceOf(other)).toString());
-
-        await this.token.execute(other, nonce, { from: deployer });
-
-        expect(await this.token.unreservedBalanceOf(other)).to.be.bignumber.equal('0');
+        // {other}'s balance is dropped to 0
+        expect(await this.token.balanceOf(other)).to.be.bignumber.equal(new BN('0'));
+        // {other}'s reserved balance equals {amount}
+        expect(await this.token.reservedOf(other)).to.be.bignumber.equal(amount);
     });
 });
 
