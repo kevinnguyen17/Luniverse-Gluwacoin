@@ -64,14 +64,6 @@ contract Reservable is BeforeTransferERC20 {
         return _totalReserved[account];
     }
 
-    function reservedBalanceOf(address account) public view returns (uint256 amount) {
-        return balanceOf(account) - _unreservedBalance(account);
-    }
-
-    function unreservedBalanceOf(address account) public view returns (uint256 amount) {
-        return _unreservedBalance(account);
-    }
-
     function reserve(address sender, address recipient, address executor, uint256 amount, uint256 fee, uint256 nonce,
         uint256 expiryBlockNum, bytes memory sig) public returns (bool success) {
         require(executor != address(0), "Reservable: cannot execute from zero address");
