@@ -50,6 +50,20 @@ contract Reservable is BeforeTransferERC20 {
         expiryBlockNum = reservation._expiryBlockNum;
     }
 
+    /**
+     * @dev Returns the amount of tokens owned by `account` deducted by the reserved amount.
+     */
+    function balanceOf(address account) public view returns (uint256) {
+        return _unreservedBalance(account);
+    }
+
+    /**
+     * @dev Returns the total amount of tokens reserved from `account`.
+     */
+    function reservedOf(address account) public view returns (uint256 amount) {
+        return _totalReserved[account];
+    }
+
     function reservedBalanceOf(address account) public view returns (uint256 amount) {
         return balanceOf(account) - _unreservedBalance(account);
     }
@@ -122,8 +136,8 @@ contract Reservable is BeforeTransferERC20 {
         return true;
     }
 
-    function _unreservedBalance(address sender) internal view returns (uint256 amount) {
-        return balanceOf(sender).sub(_totalReserved[sender]);
+    function _unreservedBalance(address account) internal view returns (uint256 amount) {
+        return BeforeTransferERC20.balanceOf(account).sub(_totalReserved[account]);
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal {
