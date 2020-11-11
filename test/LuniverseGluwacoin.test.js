@@ -936,6 +936,10 @@ describe('LuniverseGluwacoin_Reservable_Reserve', function () {
         expect(await this.token.balanceOf(other)).to.be.bignumber.equal(leftoverBalance);
         // {other}'s reserved balance equals {amount}
         expect(await this.token.reservedOf(other)).to.be.bignumber.equal(reserve_amount.add(reserve_fee));
+
+        var reserve = await this.token.getReservation(other, nonce);
+        // ReservationStatus is set to `Active`
+        expect(reserve.status).to.be.bignumber.equal(new BN('2'));
     });
 
     it('can call reserve() if amount + fee == full balance', async function () {
@@ -954,6 +958,10 @@ describe('LuniverseGluwacoin_Reservable_Reserve', function () {
         expect(await this.token.balanceOf(other)).to.be.bignumber.equal(new BN('0'));
         // {other}'s reserved balance equals {amount}
         expect(await this.token.reservedOf(other)).to.be.bignumber.equal(amount);
+
+        var reserve = await this.token.getReservation(other, nonce);
+        // ReservationStatus is set to `Active`
+        expect(reserve.status).to.be.bignumber.equal(new BN('2'));
     });
 
     it('cannot call reserve() with outdated expiryBlockNum', async function () {
@@ -1025,7 +1033,7 @@ describe('LuniverseGluwacoin_Reservable_Reserve', function () {
         );
     });
 
-    it('cannot call reserve() if amount + fee = 0', async function () {
+    it('can call reserve() if amount + fee = 0', async function () {
         var executor = deployer;
         var reserve_amount = new BN('0')
         var reserve_fee = new BN('0');
@@ -1035,10 +1043,11 @@ describe('LuniverseGluwacoin_Reservable_Reserve', function () {
 
         var signature = sign.signReserve(this.token.address, other, other_privateKey, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum);
 
-        await expectRevert(
-            this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: another }),
-            'Reservable: invalid reserve amount'
-        );
+        await this.token.reserve(other, another, executor, reserve_amount, reserve_fee, nonce, expiryBlockNum, signature, { from: another });
+
+        var reserve = await this.token.getReservation(other, nonce);
+        // ReservationStatus is set to `Active`
+        expect(reserve.status).to.be.bignumber.equal(new BN('2'));
     });
 
     it('cannot call reserve() if nonce is already used', async function () {
@@ -1110,6 +1119,7 @@ describe('LuniverseGluwacoin_Reservable_Reserve', function () {
         expect(reserve.recipient).to.equal(another);
         expect(reserve.executor).to.equal(executor);
         expect(reserve.expiryBlockNum).to.be.bignumber.equal(expiryBlockNum);
+        expect(reserve.status).to.be.bignumber.equal(new BN('0'));
     });
 });
 
@@ -1154,6 +1164,10 @@ describe('LuniverseGluwacoin_Reservable_Execute', function () {
         expect(await this.token.balanceOf(other)).to.be.bignumber.equal(new BN('0'));
         // {other}'s reserved balance equals {amount}
         expect(await this.token.reservedOf(other)).to.be.bignumber.equal(amount);
+
+        var reserve = await this.token.getReservation(other, nonce);
+        // ReservationStatus is set to `Active`
+        expect(reserve.status).to.be.bignumber.equal(new BN('0'));
     });
 
     /* execute() related
@@ -1169,6 +1183,10 @@ describe('LuniverseGluwacoin_Reservable_Execute', function () {
         expect(await this.token.balanceOf(another)).to.be.bignumber.equal(reserve_amount);
         // {executor}'s balance equals {reserve_fee}
         expect(await this.token.balanceOf(executor)).to.be.bignumber.equal(reserve_fee);
+
+        var reserve = await this.token.getReservation(other, nonce);
+        // ReservationStatus is set to `Executed`
+        expect(reserve.status).to.be.bignumber.equal(new BN('2'));
     });
 
     it('sender can call execute()', async function () {
@@ -1182,6 +1200,10 @@ describe('LuniverseGluwacoin_Reservable_Execute', function () {
         expect(await this.token.balanceOf(another)).to.be.bignumber.equal(reserve_amount);
         // {executor}'s balance equals {reserve_fee}
         expect(await this.token.balanceOf(executor)).to.be.bignumber.equal(reserve_fee);
+
+        var reserve = await this.token.getReservation(other, nonce);
+        // ReservationStatus is set to `Executed`
+        expect(reserve.status).to.be.bignumber.equal(new BN('2'));
     });
 
     it('non-executor and non-sender cannot call execute()', async function () {
@@ -1337,6 +1359,60 @@ describe('LuniverseGluwacoin_Reservable_Execute', function () {
             'Reservable: reservation does not exist'
         );
     });
+
+    it('executor cannot call execute() when the reserve is already executed', async function () {
+        await this.token.execute(other, nonce, { from: executor });
+
+        await expectRevert(
+            this.token.execute(other, nonce, { from: executor }),
+            'Reservable: invalid reservation status to execute'
+        );
+    });
+
+    it('sender cannot call execute() when the reserve is already executed', async function () {
+        await this.token.execute(other, nonce, { from: executor });
+
+        await expectRevert(
+            this.token.execute(other, nonce, { from: sender }),
+            'Reservable: invalid reservation status to execute'
+        );
+    });
+
+    it('non-executor and non-sender cannot call execute() when the reserve is already executed', async function () {
+        await this.token.execute(other, nonce, { from: executor });
+
+        await expectRevert(
+            this.token.execute(other, nonce, { from: another }),
+            'Reservable: invalid reservation status to execute'
+        );
+    });
+
+    it('executor cannot call execute() when the reserve is already reclaimed', async function () {
+        await this.token.reclaim(other, nonce, { from: executor });
+
+        await expectRevert(
+            this.token.execute(other, nonce, { from: executor }),
+            'Reservable: invalid reservation status to execute'
+        );
+    });
+
+    it('sender cannot call execute() when the reserve is already reclaimed', async function () {
+        await this.token.reclaim(other, nonce, { from: executor });
+
+        await expectRevert(
+            this.token.execute(other, nonce, { from: sender }),
+            'Reservable: invalid reservation status to execute'
+        );
+    });
+
+    it('non-executor and non-sender cannot call execute() when the reserve is already reclaimed', async function () {
+        await this.token.reclaim(other, nonce, { from: executor });
+
+        await expectRevert(
+            this.token.execute(other, nonce, { from: another }),
+            'Reservable: invalid reservation status to execute'
+        );
+    });
 });
 
 describe('LuniverseGluwacoin_Reservable_Reclaim', function () {
@@ -1395,6 +1471,10 @@ describe('LuniverseGluwacoin_Reservable_Reclaim', function () {
         expect(await this.token.balanceOf(another)).to.be.bignumber.equal(new BN('0'));
         // {executor}'s balance stays 0
         expect(await this.token.balanceOf(executor)).to.be.bignumber.equal(new BN('0'));
+
+        var reserve = await this.token.getReservation(other, nonce);
+        // ReservationStatus is set to `Reclaimed`
+        expect(reserve.status).to.be.bignumber.equal(new BN('1'));
     });
 
     it('executor can call reclaim() when the reserve is expired', async function () {
@@ -1411,6 +1491,10 @@ describe('LuniverseGluwacoin_Reservable_Reclaim', function () {
         expect(await this.token.balanceOf(another)).to.be.bignumber.equal(new BN('0'));
         // {executor}'s balance stays 0
         expect(await this.token.balanceOf(executor)).to.be.bignumber.equal(new BN('0'));
+
+        var reserve = await this.token.getReservation(other, nonce);
+        // ReservationStatus is set to `Reclaimed`
+        expect(reserve.status).to.be.bignumber.equal(new BN('1'));
     });
 
     it('sender can call reclaim() when the reserve is expired', async function () {
@@ -1427,6 +1511,10 @@ describe('LuniverseGluwacoin_Reservable_Reclaim', function () {
         expect(await this.token.balanceOf(another)).to.be.bignumber.equal(new BN('0'));
         // {executor}'s balance stays 0
         expect(await this.token.balanceOf(executor)).to.be.bignumber.equal(new BN('0'));
+
+        var reserve = await this.token.getReservation(other, nonce);
+        // ReservationStatus is set to `Reclaimed`
+        expect(reserve.status).to.be.bignumber.equal(new BN('1'));
     });
 
     it('sender cannot call reclaim() when the reserve is NOT expired', async function () {
@@ -1489,6 +1577,60 @@ describe('LuniverseGluwacoin_Reservable_Reclaim', function () {
         await expectRevert(
             this.token.reclaim(other, newNonce, { from: another }),
             'Reservable: reservation does not exist'
+        );
+    });
+
+    it('executor cannot call reclaim() when the reserve is already executed', async function () {
+        await this.token.execute(other, nonce, { from: executor });
+
+        await expectRevert(
+            this.token.reclaim(other, nonce, { from: executor }),
+            'Reservable: invalid reservation status to reclaim'
+        );
+    });
+
+    it('sender cannot call reclaim() when the reserve is already executed', async function () {
+        await this.token.execute(other, nonce, { from: executor });
+
+        await expectRevert(
+            this.token.reclaim(other, nonce, { from: sender }),
+            'Reservable: invalid reservation status to reclaim'
+        );
+    });
+
+    it('non-executor and non-sender cannot call reclaim() when the reserve is already executed', async function () {
+        await this.token.execute(other, nonce, { from: executor });
+
+        await expectRevert(
+            this.token.reclaim(other, nonce, { from: another }),
+            'Reservable: invalid reservation status to reclaim'
+        );
+    });
+
+    it('executor cannot call reclaim() when the reserve is already reclaimed', async function () {
+        await this.token.reclaim(other, nonce, { from: executor });
+
+        await expectRevert(
+            this.token.reclaim(other, nonce, { from: executor }),
+            'Reservable: invalid reservation status to reclaim'
+        );
+    });
+
+    it('sender cannot call reclaim() when the reserve is already reclaimed', async function () {
+        await this.token.reclaim(other, nonce, { from: executor });
+
+        await expectRevert(
+            this.token.reclaim(other, nonce, { from: sender }),
+            'Reservable: invalid reservation status to reclaim'
+        );
+    });
+
+    it('non-executor and non-sender cannot call reclaim() when the reserve is already reclaimed', async function () {
+        await this.token.reclaim(other, nonce, { from: executor });
+
+        await expectRevert(
+            this.token.reclaim(other, nonce, { from: another }),
+            'Reservable: invalid reservation status to reclaim'
         );
     });
 });
