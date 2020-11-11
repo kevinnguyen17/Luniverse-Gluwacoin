@@ -939,7 +939,7 @@ describe('LuniverseGluwacoin_Reservable_Reserve', function () {
 
         var reserve = await this.token.getReservation(other, nonce);
         // ReservationStatus is set to `Active`
-        expect(reserve.status).to.be.bignumber.equal(new BN('2'));
+        expect(reserve.status).to.be.bignumber.equal(new BN('0'));
     });
 
     it('can call reserve() if amount + fee == full balance', async function () {
@@ -961,7 +961,7 @@ describe('LuniverseGluwacoin_Reservable_Reserve', function () {
 
         var reserve = await this.token.getReservation(other, nonce);
         // ReservationStatus is set to `Active`
-        expect(reserve.status).to.be.bignumber.equal(new BN('2'));
+        expect(reserve.status).to.be.bignumber.equal(new BN('0'));
     });
 
     it('cannot call reserve() with outdated expiryBlockNum', async function () {
@@ -1047,7 +1047,7 @@ describe('LuniverseGluwacoin_Reservable_Reserve', function () {
 
         var reserve = await this.token.getReservation(other, nonce);
         // ReservationStatus is set to `Active`
-        expect(reserve.status).to.be.bignumber.equal(new BN('2'));
+        expect(reserve.status).to.be.bignumber.equal(new BN('0'));
     });
 
     it('cannot call reserve() if nonce is already used', async function () {
@@ -1383,7 +1383,7 @@ describe('LuniverseGluwacoin_Reservable_Execute', function () {
 
         await expectRevert(
             this.token.execute(other, nonce, { from: another }),
-            'Reservable: invalid reservation status to execute'
+            'Reservable: this address is not authorized to execute this reservation'
         );
     });
 
@@ -1410,7 +1410,7 @@ describe('LuniverseGluwacoin_Reservable_Execute', function () {
 
         await expectRevert(
             this.token.execute(other, nonce, { from: another }),
-            'Reservable: invalid reservation status to execute'
+            'Reservable: this address is not authorized to execute this reservation'
         );
     });
 });
