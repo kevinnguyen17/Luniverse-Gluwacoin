@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.5.0;
 
-import "./abstracts/BeforeTransferERC20.sol";
+import "./abstracts/ERC20Pausable.sol";
 import "./abstracts/Burnable.sol";
 import "./abstracts/ETHlessTransfer.sol";
 import "./abstracts/Peggable.sol";
@@ -15,7 +15,7 @@ import "./roles/LuniverseRole.sol";
  *
  * At construction, the deployer of the contract is the only minter.
  */
-contract LuniverseGluwacoin is BeforeTransferERC20, GluwaRole, LuniverseRole, Burnable, Peggable, Reservable, ETHlessTransfer {
+contract LuniverseGluwacoin is ERC20Pausable, GluwaRole, LuniverseRole, Burnable, Peggable, Reservable, ETHlessTransfer {
     constructor(string memory name, string memory symbol, uint8 decimals) public
     BeforeTransferERC20(name, symbol, decimals) GluwaRole(msg.sender) LuniverseRole(msg.sender) {}
 }
