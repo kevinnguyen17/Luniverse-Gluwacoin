@@ -383,6 +383,74 @@ describe('LuniverseGluwacoin_LuniverseRole', function () {
     });
 });
 
+describe('LuniverseGluwacoin_PauserRole', function () {
+    const [ deployer, other, another ] = accounts;
+
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
+    });
+
+    /* PauserRole related
+    */
+   it('deployer is a Pauser', async function () {
+        expect(await this.token.isPauser(deployer)).to.be.equal(true);
+    });
+
+    it('non-deployer is not a Pauser', async function () {
+        expect(await this.token.isPauser(other)).to.be.equal(false);
+        expect(await this.token.isPauser(another)).to.be.equal(false);
+    });
+
+    // addPauser related
+    it('Pauser can add non-Pauser and make it Pauser', async function () {
+        expect(await this.token.isPauser(deployer)).to.be.equal(true);
+        expect(await this.token.isPauser(other)).to.be.equal(false);
+        await this.token.addPauser(other, { from : deployer });
+        expect(await this.token.isPauser(other)).to.be.equal(true);
+    });
+
+    it('newly-added Pauser can add non-Pauser and make it Pauser', async function () {
+        expect(await this.token.isPauser(deployer)).to.be.equal(true);
+        expect(await this.token.isPauser(other)).to.be.equal(false);
+        await this.token.addPauser(other, { from : deployer });
+
+        expect(await this.token.isPauser(other)).to.be.equal(true);
+        expect(await this.token.isPauser(another)).to.be.equal(false);
+        await this.token.addPauser(another, { from : other });
+
+        expect(await this.token.isPauser(another)).to.be.equal(true);
+    });
+
+    it('non-Pauser cannot add Pauser', async function () {
+        expect(await this.token.isPauser(other)).to.be.equal(false);
+        await expectRevert(
+            this.token.addPauser(another, { from : other }),
+            'PauserRole: caller does not have the Pauser role'
+        );
+    });
+
+    // renouncePauser related
+    it('Pauser can renounce and become a non-Pauser', async function () {
+        expect(await this.token.isPauser(deployer)).to.be.equal(true);
+        await this.token.renouncePauser({ from : deployer });
+        expect(await this.token.isPauser(deployer)).to.be.equal(false);
+    });
+
+    it('newly-added Pauser can renounce and become a non-Pauser', async function () {
+        expect(await this.token.isPauser(deployer)).to.be.equal(true);
+        expect(await this.token.isPauser(other)).to.be.equal(false);
+        await this.token.addPauser(other, { from : deployer });
+
+        await this.token.renouncePauser({ from : other });
+        expect(await this.token.isPauser(other)).to.be.equal(false);
+    });
+});
+
 describe('LuniverseGluwacoin_Peggable', function () {
     const [ deployer, other, pegSender ] = accounts;
 
@@ -1858,6 +1926,157 @@ describe('LuniverseGluwacoin_ETHless', function () {
         await expectRevert(
             this.token.transfer(other, another, amount.sub(fee), fee, nonce, signature, { from: another }),
             'GluwaRole: caller does not have the Gluwa role'
+        );
+    });
+});
+
+describe('LuniverseGluwacoin_Pausable', function () {
+    const [ deployer, other ] = accounts;
+
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
+        // verify that the contract is not paused
+        expect(await this.token.paused()).to.be.equal(false);
+        // verify that deployer is a Pauser
+        expect(await this.token.isPauser(deployer)).to.be.equal(true);
+        // verify that deployer is a not Pauser
+        expect(await this.token.isPauser(other)).to.be.equal(false);
+    });
+
+    // pause related
+    it('Pauser can pause', async function () {
+        await this.token.pause({ from : deployer });
+        expect(await this.token.paused()).to.be.equal(true);
+    });
+
+    it('Pauser cannot pause already paused', async function () {
+        await this.token.pause({ from : deployer });
+        await expectRevert(
+            this.token.pause({ from : deployer }),
+            "Pausable: paused"
+        );
+    });
+
+    it('non-Pauser cannot pause', async function () {
+        await expectRevert(
+            this.token.pause({ from : other }),
+            "PauserRole: caller does not have the Pauser role"
+        );
+    });
+
+    // unpause related
+    it('Pauser can unpause', async function () {
+        await this.token.pause({ from : deployer });
+        expect(await this.token.paused()).to.be.equal(true);
+        await this.token.unpause({ from : deployer });
+        expect(await this.token.paused()).to.be.equal(false);
+    });
+
+    it('Pauser cannot unpause not paused', async function () {
+        await expectRevert(
+            this.token.unpause({ from : deployer }),
+            "Pausable: not paused"
+        );
+    });
+
+    it('non-Pauser cannot unpause', async function () {
+        await this.token.pause({ from : deployer });
+        expect(await this.token.paused()).to.be.equal(true);
+        await expectRevert(
+            this.token.pause({ from : other }),
+            "PauserRole: caller does not have the Pauser role"
+        );
+    });
+});
+
+describe('LuniverseGluwacoin_ERC20Pausable', function () {
+    const [ deployer, other, another, pegSender ] = accounts;
+    const [ deployer_privateKey, other_privateKey, another_privateKey, pegSender_privateKey ] = privateKeys;
+
+    const name = 'LuniverseGluwacoin';
+    const symbol = 'LG';
+    const decimals = new BN('18');
+    const amount = new BN('5000');
+    const fee = new BN('1');
+    const pegTxnHash = '0x2ff883f947eda8a14f54d1e372b8031bb47d721dede68c8934f49f818efe8620';
+    const pegAmount = new BN('1000');
+
+    beforeEach(async function () {
+        // Deploy a new LuniverseGluwacoin contract for each test
+        this.token = await LuniverseGluwacoin.new(name, symbol, decimals, { from : deployer });
+        // verify that the contract is not paused
+        expect(await this.token.paused()).to.be.equal(false);
+        // verify that deployer is a Pauser
+        expect(await this.token.isPauser(deployer)).to.be.equal(true);
+        // verify that deployer is a not Pauser
+        expect(await this.token.isPauser(other)).to.be.equal(false);
+    });
+
+    // pause related
+    it('cannot mint when paused', async function () {
+        await this.token.pause({ from : deployer });
+        expect(await this.token.paused()).to.be.equal(true);
+
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+
+        await expectRevert(
+            this.token.mint(pegTxnHash, { from : deployer }),
+            "ERC20Pausable: token transfer while paused"
+        );
+    });
+
+    it('cannot burn when paused', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+        await this.token.mint(pegTxnHash, { from : deployer });
+
+        await this.token.pause({ from : deployer });
+        expect(await this.token.paused()).to.be.equal(true);
+
+        await expectRevert(
+            this.token.burn(pegAmount, { from : pegSender }),
+            "ERC20Pausable: token transfer while paused"
+        );
+    });
+
+    it('cannot transfer when paused', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+        await this.token.mint(pegTxnHash, { from : deployer });
+
+        await this.token.pause({ from : deployer });
+        expect(await this.token.paused()).to.be.equal(true);
+
+        await expectRevert(
+            this.token.methods['transfer(address,uint256)'](other, pegAmount, { from: pegSender }),
+            "ERC20Pausable: token transfer while paused"
+        );
+    });
+
+    it('cannot ETHless transfer when paused', async function () {
+        await this.token.peg(pegTxnHash, pegAmount, pegSender, { from : deployer });
+        await this.token.gluwaApprove(pegTxnHash, { from : deployer });
+        await this.token.luniverseApprove(pegTxnHash, { from : deployer });
+        await this.token.mint(pegTxnHash, { from : deployer });
+
+        await this.token.pause({ from : deployer });
+        expect(await this.token.paused()).to.be.equal(true);
+
+        var nonce = Date.now();
+        var signature = sign.sign(this.token.address, pegSender, pegSender_privateKey, other, amount.sub(fee), fee, nonce);
+
+        await expectRevert(
+            this.token.transfer(pegSender, other, amount.sub(fee), fee, nonce, signature, { from: deployer }),
+            "ERC20Pausable: token transfer while paused"
         );
     });
 });
