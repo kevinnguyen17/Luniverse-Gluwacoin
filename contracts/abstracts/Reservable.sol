@@ -72,7 +72,6 @@ contract Reservable is BeforeTransferERC20 {
         require(_reserved[sender][nonce]._expiryBlockNum == 0, "Reservable: the sender used the nonce already");
 
         uint256 total = amount.add(fee);
-        require(total >= 0, "Reservable: invalid reserve amount");
         require(_unreservedBalance(sender) >= total, "Reservable: insufficient unreserved balance");
 
         bytes32 hash = keccak256(abi.encodePacked(address(this), sender, recipient, executor, amount, fee, nonce, expiryBlockNum));
