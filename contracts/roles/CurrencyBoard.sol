@@ -1,4 +1,4 @@
-pragma solidity >=0.5.16;
+pragma solidity >=0.5.0;
 import "@openzeppelin/contracts/access/Roles.sol";
 import "@openzeppelin/contracts/GSN/Context.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
@@ -9,22 +9,26 @@ contract CurrencyBoard is Context, Ownable {
     using Roles for Roles.Role;
 
     Roles.Role private _Admins;
-    Roles.Role private _Minters;
+    Roles.Role private _Controllers;
 
     event AdminAdded(address indexed account);
     event AdminRemoved(address indexed account);
-    event MinterAdded(address indexed account);
-    event MinterRemoved(address indexed account);
+    event ControllerAdded(address indexed account);
+    event ControllerRemoved(address indexed account);
 
-        
+    constructor(address sender) public {
+        if (!isAdmin(sender)) {
+            addAdmin(sender);
+        }
+    }   
   
     modifier onlyAdmin() {
-        require(isAdmin(_msgSender()), "Minter Role: caller does not have the Minter role");
+        require(isAdmin(_msgSender()), "Admin Role: caller does not have theAdmin role");
         _;
     }
 
-    modifier onlyMinter() {
-        require(isMinter(_msgSender()), "Minter Role: caller does not have the Minter role");
+    modifier onlyController () {
+        require(isController (_msgSender()), "Controller  Role: caller does not have the Controller  role");
         _;
     }
 
@@ -34,12 +38,12 @@ contract CurrencyBoard is Context, Ownable {
 
     function addAdmin(address account) public onlyOwner {
         _addAdmin(account);
-        _addMinter(account);
+        _addController (account);
     }
 
     function removeAdmin(address account) public onlyOwner {
         _removeAdmin(account);
-        _removeMinter(account);
+        _removeController (account);
     }
 
     function _addAdmmin(address account) internal {
@@ -54,29 +58,29 @@ contract CurrencyBoard is Context, Ownable {
 
   
 
-    function isMinter(address account) public view returns (bool) {
-        return _Minters.has(account);
+    function isController (address account) public view returns (bool) {
+        return _Controllers.has(account);
     }
 
-    function addMinter(address account) public onlyAdmin {
-        _addMinter(account);
+    function addController (address account) public onlyAdmin {
+        _addController (account);
     }
 
-    function removeMinter(address account) public onlyMinter {
-        _removeMinter(account);
+    function removeController (address account) public onlyAdmin  {
+        _removeController (account);
     }
 
-    function renounceMinter() public {
-        _removeMinter(_msgSender());
+    function renounceController () public only Controller {
+        _removeController (_msgSender());
     }
 
-    function _addMinter(address account) internal {
-        _Minters.add(account);
-        emit MinterAdded(account);
+    function _addController (address account) internal {
+        _Controllers.add(account);
+        emit ControllerAdded(account);
     }
 
-    function _removeMinter(address account) internal {
-        _Minters.remove(account);
-        emit MinterRemoved(account);
+    function _removeController (address account) internal {
+        _Controllers.remove(account);
+        emit ControllerRemoved(account);
     }
 }

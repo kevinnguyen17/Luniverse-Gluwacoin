@@ -3,26 +3,30 @@
 const CurrencyBoard = artifacts.require('CurrencyBoard')
 
 contract('CurrencyBoard', accounts  => {
-  const addressList = ["0x871263b05d6B932feF35325835b8e36a7d69a032","0xd9d097435E7CF8e663CcB26daB9C31A7F2B64ab4","0x980d8422F37e7F102100bd009153D913b10d2bD3"];
+  const address = accounts[0];
     
-  it("add the first addresses", () =>
+  it("add the an admin", () =>
     CurrencyBoard.deployed()
-      .then(instance => { return instance.addMemberAddress.call(addressList)})
-      .then(balance => {
+      .then(instance => { return instance.addAdmin.call(address)})
+      .then(instance => {
         assert.equal(
-          balance.valueOf(),
+          instance.isAdmin.call(address),
           4,
           "first addresses are added successfully "
         );
       }));
   //let accounts = web3.eth.getAccounts();
  
-  it("add address", () => 
-    CurrencyBoard.deployed()
-      .then(instance => { return instance.addMemberAddress.call(addressList) })
-      .then(arrayLength => {       
-        assert.equal(arrayLength.valueOf(),2000,"not match");
-  })); 
+  it("add the an member", () =>
+  CurrencyBoard.deployed()
+    .then(instance => { return instance.addAdmin.call(address)})
+    .then(instance => {
+      assert.equal(
+        instance.isAdmin.call(address),
+        4,
+        "first addresses are added successfully "
+      );
+    }));
 })
 
 
