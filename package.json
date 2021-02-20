@@ -5,9 +5,12 @@
   "main": "index.js",
   "dependencies": {
     "@openzeppelin/cli": "^2.8.2",
-    "@openzeppelin/contracts": "^2.5.1"
+    "@openzeppelin/contracts": "^2.4.0",
+    "@openzeppelin/contracts-upgradeable": "^3.4.0",
+    "@openzeppelin/upgrades": "^2.8.0"
   },
   "devDependencies": {
+    "@audits/truffle-test-generator": "^1.0.1",
     "@openzeppelin/test-environment": "^0.1.5",
     "@openzeppelin/test-helpers": "^0.5.7",
     "chai": "^4.2.0",
