@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
-import "./BeforeTransferERC20.sol";
+import "./ExtendedERC20.sol";
 import "../Validate.sol";
 
 /**
@@ -14,7 +14,7 @@ import "../Validate.sol";
  * a `fee`. If the `reserve` gets expired without getting executed, the `sender` or the `executor` can `reclaim`
  * the fund back to the `sender`.
  */
-contract Reservable is BeforeTransferERC20 {
+contract Reservable is ExtendedERC20 {
     using Address for address;
     using ECDSA for bytes32;
 
@@ -132,7 +132,7 @@ contract Reservable is BeforeTransferERC20 {
     }
 
     function _unreservedBalance(address account) internal view returns (uint256 amount) {
-        return BeforeTransferERC20.balanceOf(account).sub(_totalReserved[account]);
+        return ExtendedERC20.balanceOf(account).sub(_totalReserved[account]);
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 amount) internal {

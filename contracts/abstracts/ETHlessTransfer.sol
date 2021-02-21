@@ -5,15 +5,15 @@ import "@openzeppelin/contracts/GSN/Context.sol";
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
-import "./BeforeTransferERC20.sol";
+import "./ExtendedERC20.sol";
 import "../Validate.sol";
-import "../roles/GluwaRole.sol";
+import "../roles/CurrencyBoard.sol";
 
 /**
  * @dev Extension of {ERC20} that allows users to send ETHless transfer by hiring a transaction relayer to pay the
  * gas fee for them. The relayer gets paid in this ERC20 token for `fee`.
  */
-contract ETHlessTransfer is Context, BeforeTransferERC20, GluwaRole {
+contract ETHlessTransfer is Context, ExtendedERC20, CurrencyBoard {
     using Address for address;
     using ECDSA for bytes32;
 
@@ -33,8 +33,7 @@ contract ETHlessTransfer is Context, BeforeTransferERC20, GluwaRole {
      * - the `sender` must have a balance of at least the sum of `amount` and `fee`.
      * - the `nonce` is only used once per `sender`.
      */
-    function transfer(address sender, address recipient, uint256 amount, uint256 fee, uint256 nonce, bytes memory sig)
-    public onlyGluwa returns (bool success) {
+    function transfer(address sender, address recipient, uint256 amount, uint256 fee, uint256 nonce, bytes memory sig) public onlyController returns (bool success) {
         _useNonce(sender, nonce);
 
         bytes32 hash = keccak256(abi.encodePacked(address(this), sender, recipient, amount, fee, nonce));

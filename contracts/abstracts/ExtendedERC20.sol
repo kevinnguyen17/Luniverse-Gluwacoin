@@ -9,7 +9,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
  *
  * Changes made to `_transfer`, `_mint`, and `_burn` to add `_beforeTransfer`.
  */
-contract BeforeTransferERC20 is Context, IERC20 {
+contract ExtendedERC20 is Context, IERC20 {
     using SafeMath for uint256;
 
     mapping (address => uint256) private _balances;
@@ -277,5 +277,8 @@ contract BeforeTransferERC20 is Context, IERC20 {
      *
      * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
      */
-    function _beforeTokenTransfer(address from, address to, uint256 amount) internal { }
+    function _beforeTokenTransfer(address from, address to, uint256 amount) internal { 
+
+       require(_validRecipient(to), "ERC20WithSafeTransfer: invalid recipient");     
+    }
 }
